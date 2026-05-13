@@ -663,29 +663,48 @@ function tesisSecildi(ad) {
   if (!odaTipleri.length) { odaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Oda tipi tanımlanmamış</span>'; }
   else { odaWrap.innerHTML = odaTipleri.map(function(o){
     var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
-    return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+'/> '+o+'</label>';
+    return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+' onchange="haftaGridYenile()"/> '+o+'</label>';
   }).join(''); }
   // Hafta seçenekleri — önce loading göster, sonra dolu haftaları çekip renkli render et
   var haftaWrap = document.getElementById('field-hafta');
   var mevcutHaftalar = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
-  var toplamHafta = tesis.haftaSayi || 52;
+  haftaWrap.setAttribute('data-tesis', ad);
+  haftaWrap.setAttribute('data-toplam', tesis.haftaSayi || 52);
+  haftaWrap.setAttribute('data-mevcut', mevcutHaftalar.join(','));
+  haftaGridYenile();
+}
+
+function haftaGridYenile() {
+  var haftaWrap = document.getElementById('field-hafta');
+  var ad = haftaWrap.getAttribute('data-tesis');
+  if (!ad) return;
+  var toplamHafta = parseInt(haftaWrap.getAttribute('data-toplam')) || 52;
+  var mevcutHaftalar = (haftaWrap.getAttribute('data-mevcut') || '').split(',').filter(Boolean);
+  // Seçili oda tiplerini oku
+  var odaWrap = document.getElementById('field-oda-tipi');
+  var seciliOdalar = odaWrap ? Array.prototype.slice.call(odaWrap.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
   haftaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Rezervasyonlar kontrol ediliyor...</span>';
   BX24.callMethod('crm.deal.list', {
     filter: { 'UF_CRM_TESIS_ADI': ad },
-    select: ['ID','TITLE','UF_CRM_HAFTA_NO']
+    select: ['ID','TITLE','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI']
   }, function(r) {
-    var doluHaftalar = {}; // hafta label ("17") -> deal title
+    var doluHaftalar = {}; // hafta label -> {title, odalar:[]}
     if (!r.error()) {
       r.data().forEach(function(d) {
-        if (String(d.ID) === String(STATE.dealId)) return; // kendisi
+        if (String(d.ID) === String(STATE.dealId)) return;
+        // Oda tiplerini çöz
+        var dOdaRaw = d['UF_CRM_ODA_TIPI'] || '';
+        var dOdaArr = Array.isArray(dOdaRaw) ? dOdaRaw : String(dOdaRaw).split(',').filter(Boolean);
+        var dOdaLabels = dOdaArr.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); }).filter(Boolean);
+        // Seçili oda tipiyle örtüşüyor mu? (seçili yoksa tümü dolu say)
+        var cakisiyorOda = seciliOdalar.length === 0 || dOdaLabels.some(function(o){ return seciliOdalar.indexOf(o) >= 0; });
+        if (!cakisiyorOda) return;
+        // Haftaları çöz
         var hafRaw = d['UF_CRM_HAFTA_NO'] || '';
-        // enumeration MULTIPLE:Y → array of IDs; eski string → virgüllü sayılar
         var hafArr = Array.isArray(hafRaw) ? hafRaw : String(hafRaw).split(',').filter(Boolean);
         hafArr.forEach(function(h){
-          h = String(h).trim();
-          // enum ID ise label'a çevir, zaten label ise direkt kullan
-          var label = HAFTA_ENUM.idToVal[h] || h;
-          if (label) doluHaftalar[label] = d.TITLE || ('Deal #'+d.ID);
+          var label = HAFTA_ENUM.idToVal[String(h).trim()] || String(h).trim();
+          if (label) doluHaftalar[label] = (d.TITLE || ('Deal #'+d.ID)) + (dOdaLabels.length ? ' ('+dOdaLabels.join(', ')+')' : '');
         });
       });
     }
@@ -702,7 +721,6 @@ function tesisSecildi(ad) {
     }
     haftaWrap.innerHTML = haftaHtml;
   });
-}
 
 var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
 var HAFTA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Hafta enum ID <-> label
@@ -812,19 +830,27 @@ function kaydet() {
   var haftaWrap = document.getElementById('field-hafta');
   var seciliHaftalar = haftaWrap ? Array.prototype.slice.call(haftaWrap.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
 
-  // Çakışma kontrolü: her seçili hafta için başka deal'de var mı?
+  // Çakışma kontrolü: tesis + hafta + oda tipi üçlüsü
   if (tesis && seciliHaftalar.length) {
     setSaveStatus('Kontrol ediliyor...');
+    var odaWrap2 = document.getElementById('field-oda-tipi');
+    var seciliOdalar2 = odaWrap2 ? Array.prototype.slice.call(odaWrap2.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
     var cakisanlar = [];
     var kalan = seciliHaftalar.length;
     seciliHaftalar.forEach(function(hafta) {
       BX24.callMethod('crm.deal.list', {
         filter: { 'UF_CRM_TESIS_ADI': tesis, 'UF_CRM_HAFTA_NO': hafta },
-        select: ['ID','TITLE','UF_CRM_HAFTA_NO']
+        select: ['ID','TITLE','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI']
       }, function(r) {
         if (!r.error()) {
           r.data().forEach(function(d){
-            if (String(d.ID) !== String(STATE.dealId)) cakisanlar.push('Hafta '+hafta+': "'+d.TITLE+'"');
+            if (String(d.ID) === String(STATE.dealId)) return;
+            // Oda tipi örtüşüyor mu?
+            var dOdaRaw = d['UF_CRM_ODA_TIPI'] || '';
+            var dOdaArr = Array.isArray(dOdaRaw) ? dOdaRaw : String(dOdaRaw).split(',').filter(Boolean);
+            var dOdaLabels = dOdaArr.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); }).filter(Boolean);
+            var cakisiyorOda = seciliOdalar2.length === 0 || dOdaLabels.some(function(o){ return seciliOdalar2.indexOf(o) >= 0; });
+            if (cakisiyorOda) cakisanlar.push('Hafta '+hafta+': "'+d.TITLE+'"'+(dOdaLabels.length?' ('+dOdaLabels.join(', ')+')':""));
           });
         }
         kalan--;
