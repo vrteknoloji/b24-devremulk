@@ -444,6 +444,20 @@ BX24.init(function() {
   entityInit(function() { yukle(); });
 });
 
+// BX24.init bazen Bitrix24 dışında hiç tetiklenmez — 4 saniye timeout koruması
+setTimeout(function(){
+  if(document.getElementById('loading') && !document.getElementById('loading').classList.contains('hidden')){
+    // Hala loading'deyiz — BX24 olmadan da test edebilmek için
+    var testId = getUrlParam('DEAL_ID') || getUrlParam('ID') || 'TEST';
+    STATE.dealId = testId;
+    if(testId === 'TEST'){
+      showError('BX24 init zaman aşımı. Uygulamayı Bitrix24 Deal sekmesinden açın.');
+    } else {
+      entityInit(function(){ yukle(); });
+    }
+  }
+}, 4000);
+
 function yukle() {
   var selectFields = ['ID','TITLE','OPPORTUNITY','CURRENCY_ID','STAGE_ID','CONTACT_ID','COMPANY_ID','ASSIGNED_BY_ID',
     'UF_CRM_TESIS_ADI','UF_CRM_UNITE_NO','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI','UF_CRM_SEHIR','UF_CRM_YILDIZ',
