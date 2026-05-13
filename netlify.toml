@@ -2,6 +2,9 @@
   publish = "."
   functions = "netlify/functions"
 
+[functions]
+  included_files = ["index.html", "install.html"]
+
 [[redirects]]
   from = "/install.html"
   to = "/.netlify/functions/install"
