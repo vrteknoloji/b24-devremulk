@@ -310,8 +310,9 @@ textarea{resize:vertical;font-family:inherit}
         <div id="admin-sifre-hata" style="color:#dc2626;font-size:12px;margin-top:8px;display:none">❌ Yanlış şifre!</div>
       </div>
       <div id="admin-content" style="display:none">
-        <div class="m-card">
-          <h3>➕ Yeni Tesis Ekle</h3>
+        <div class="m-card" id="af-kart">
+          <h3 id="af-baslik">Yeni Tesis Ekle</h3>
+          <input type="hidden" id="af-duzenle-id" value=""/>
           <div class="m-grid2">
             <div class="m-fg"><label>Tesis Adı *</label><input id="af-ad" placeholder="Sunny Beach Resort"/></div>
             <div class="m-fg"><label>Şehir *</label><input id="af-sehir" placeholder="Bodrum, Antalya..."/></div>
@@ -325,17 +326,20 @@ textarea{resize:vertical;font-family:inherit}
           <div class="m-fg" style="margin-bottom:12px">
             <label>Özellikler</label>
             <div class="m-cb-row">
-              <label class="m-cb-label"><input type="checkbox" id="aoz-deniz"/> 🌊 Denize Sıfır</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-havuz"/> 🏊 Havuz</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-spa"/> 💆 SPA</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-cocuk"/> 👶 Çocuk Kulübü</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-restoran"/> 🍽️ Restoran</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-otopark"/> 🅿️ Otopark</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-wifi"/> 📶 Wi-Fi</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-klima"/> ❄️ Klima</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-deniz"/> Denize Sıfır</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-havuz"/> Havuz</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-spa"/> SPA</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-cocuk"/> Çocuk Kulübü</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-restoran"/> Restoran</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-otopark"/> Otopark</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-wifi"/> Wi-Fi</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-klima"/> Klima</label>
             </div>
           </div>
-          <button class="btn btn-primary" onclick="adminTesisEkle()">💾 Tesis Kaydet</button>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button id="af-kaydet-btn" class="btn btn-primary" onclick="adminTesisKaydet()">Tesis Kaydet</button>
+            <button id="af-iptal-btn" class="btn btn-ghost" onclick="adminFormSifirla()" style="display:none">Vazgeç</button>
+          </div>
         </div>
         <div class="m-card">
           <h3>🏨 Kayıtlı Tesisler <span id="admin-tesis-sayi" style="font-weight:400;color:#94a3b8"></span></h3>
@@ -698,7 +702,42 @@ function adminTesisleriYukle() {
     tesisleriYukle();
   });
 }
-function adminTesisEkle() {
+function _afFormDoldur(t) {
+  document.getElementById('af-duzenle-id').value = t.id;
+  document.getElementById('af-ad').value = t.ad || '';
+  document.getElementById('af-sehir').value = t.sehir || '';
+  document.getElementById('af-yildiz').value = t.yildiz || '';
+  document.getElementById('af-unite').value = t.uniteSayi || '';
+  document.getElementById('af-hafta').value = t.haftaSayi || 52;
+  document.getElementById('af-oda').value = (t.odaTipleri || []).join(', ');
+  var oz = t.ozellikler || {};
+  ['deniz','havuz','spa','cocuk','restoran','otopark','wifi','klima'].forEach(function(k) {
+    var el = document.getElementById('aoz-' + k);
+    if (el) el.checked = !!oz[k];
+  });
+}
+function adminFormSifirla() {
+  document.getElementById('af-duzenle-id').value = '';
+  document.getElementById('af-baslik').textContent = 'Yeni Tesis Ekle';
+  document.getElementById('af-kaydet-btn').textContent = 'Tesis Kaydet';
+  document.getElementById('af-iptal-btn').style.display = 'none';
+  ['af-ad','af-sehir','af-unite'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('af-hafta').value='52';
+  document.getElementById('af-yildiz').value='';
+  document.getElementById('af-oda').value='';
+  ['aoz-deniz','aoz-havuz','aoz-spa','aoz-cocuk','aoz-restoran','aoz-otopark','aoz-wifi','aoz-klima'].forEach(function(id){document.getElementById(id).checked=false;});
+  document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
+}
+function adminTesisDuzenle(id) {
+  var t = ADMIN_TESISLER.find(function(x){return String(x.id)===String(id);});
+  if (!t) return;
+  _afFormDoldur(t);
+  document.getElementById('af-baslik').textContent = 'Tesis Düzenle: ' + t.ad;
+  document.getElementById('af-kaydet-btn').textContent = 'Güncelle';
+  document.getElementById('af-iptal-btn').style.display = '';
+  document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
+}
+function adminTesisKaydet() {
   var ad = document.getElementById('af-ad').value.trim();
   var sehir = document.getElementById('af-sehir').value.trim();
   if (!ad || !sehir) { showToast('Tesis adı ve şehir zorunlu!', 'error'); return; }
@@ -721,22 +760,29 @@ function adminTesisEkle() {
       klima: document.getElementById('aoz-klima').checked
     }
   };
-  BX24.callMethod('crm.product.add', {
-    fields: {
-      NAME: ad,
-      PRICE: 0,
-      DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta)
-    }
-  }, function(r) {
-    if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
-    showToast('✅ ' + ad + ' kaydedildi!', 'success');
-    adminTesisleriYukle();
-    ['af-ad','af-sehir','af-unite'].forEach(function(id){document.getElementById(id).value='';});
-    document.getElementById('af-hafta').value='52';
-    document.getElementById('af-yildiz').value='';
-    document.getElementById('af-oda').value='';
-    ['aoz-deniz','aoz-havuz','aoz-spa','aoz-cocuk','aoz-restoran','aoz-otopark','aoz-wifi','aoz-klima'].forEach(function(id){document.getElementById(id).checked=false;});
-  });
+  var duzenleId = document.getElementById('af-duzenle-id').value;
+  if (duzenleId) {
+    // Güncelle
+    BX24.callMethod('crm.product.update', {
+      id: duzenleId,
+      fields: { NAME: ad, DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta) }
+    }, function(r) {
+      if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
+      showToast('✅ ' + ad + ' güncellendi!', 'success');
+      adminFormSifirla();
+      adminTesisleriYukle();
+    });
+  } else {
+    // Yeni ekle
+    BX24.callMethod('crm.product.add', {
+      fields: { NAME: ad, PRICE: 0, DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta) }
+    }, function(r) {
+      if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
+      showToast('✅ ' + ad + ' kaydedildi!', 'success');
+      adminFormSifirla();
+      adminTesisleriYukle();
+    });
+  }
 }
 function adminTesisSil(id) {
   var t = ADMIN_TESISLER.find(function(x){return String(x.id)===String(id);});
@@ -757,7 +803,20 @@ function adminListeyiRender() {
   }
   liste.innerHTML = ADMIN_TESISLER.map(function(t) {
     var y = t.yildiz ? '⭐'.repeat(parseInt(t.yildiz)) : '';
-    return '<div class="tesis-item"><span class="ti-name">'+t.ad+' '+y+'</span><span class="ti-meta">'+t.sehir+' · '+t.odaTipleri.join(', ')+'</span><button class="btn btn-danger btn-sm" onclick="adminTesisSil('+t.id+')">Sil</button></div>';
+    var oz = t.ozellikler || {};
+    var ozList = ['deniz','havuz','spa','cocuk','restoran','otopark','wifi','klima']
+      .filter(function(k){return oz[k];})
+      .map(function(k){return {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'}[k];})
+      .join(', ');
+    return '<div class="tesis-item">'+
+      '<div style="flex:1">'+
+        '<div class="ti-name">'+t.ad+' '+y+'</div>'+
+        '<div class="ti-meta">'+t.sehir+(t.odaTipleri&&t.odaTipleri.length?' · '+t.odaTipleri.join(', '):'')+'</div>'+
+        (ozList?'<div style="font-size:11px;color:#64748b;margin-top:2px">'+ozList+'</div>':'')+ 
+      '</div>'+
+      '<button class="btn btn-secondary btn-sm" style="margin-right:4px" onclick="adminTesisDuzenle('+t.id+')">Düzenle</button>'+
+      '<button class="btn btn-danger btn-sm" onclick="adminTesisSil('+t.id+')">Sil</button>'+
+    '</div>';
   }).join('');
 }
 function ufAlanlariniOlustur() {
