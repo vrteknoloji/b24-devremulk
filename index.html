@@ -209,19 +209,19 @@ textarea{resize:vertical;font-family:inherit}
             <label>Mülk Tipi</label>
             <select id="field-mulk-tipi">
               <option value="">Seçiniz...</option>
-              <option value="devre_tatil">Devre Tatil</option>
-              <option value="devre_mulk">Devremülk (Tapu)</option>
-              <option value="puan_sistemi">Puan Sistemi</option>
+              <option value="Devre Tatil">Devre Tatil</option>
+              <option value="Devremülk (Tapu)">Devremülk (Tapu)</option>
+              <option value="Puan Sistemi">Puan Sistemi</option>
             </select>
           </div>
           <div class="field-group">
             <label>Kullanım Sezonu</label>
             <select id="field-sezon">
               <option value="">Seçiniz...</option>
-              <option value="yuksek">Yüksek Sezon</option>
-              <option value="orta">Orta Sezon</option>
-              <option value="dusuk">Düşük Sezon</option>
-              <option value="tum_yil">Tüm Yıl</option>
+              <option value="Yüksek Sezon">Yüksek Sezon</option>
+              <option value="Orta Sezon">Orta Sezon</option>
+              <option value="Düşük Sezon">Düşük Sezon</option>
+              <option value="Tüm Yıl">Tüm Yıl</option>
             </select>
           </div>
         </div>
@@ -246,14 +246,14 @@ textarea{resize:vertical;font-family:inherit}
           <div class="field-group">
             <label>Taksit Sayısı</label>
             <select id="field-taksit">
-              <option value="0">Peşin</option>
-              <option value="3">3 Ay</option>
-              <option value="6">6 Ay</option>
-              <option value="12">12 Ay</option>
-              <option value="24">24 Ay</option>
-              <option value="36">36 Ay</option>
-              <option value="48">48 Ay</option>
-              <option value="60">60 Ay</option>
+              <option value="0">0 (Peşin)</option>
+              <option value="6">6</option>
+              <option value="12">12</option>
+              <option value="18">18</option>
+              <option value="24">24</option>
+              <option value="36">36</option>
+              <option value="48">48</option>
+              <option value="60">60</option>
             </select>
           </div>
           <div class="field-group"><label>Faiz Oranı (%)</label><input type="number" id="field-faiz" placeholder="0" step="0.1"/></div>
@@ -289,10 +289,10 @@ textarea{resize:vertical;font-family:inherit}
           <label>Tapu Durumu</label>
           <select id="field-tapu-durum">
             <option value="">Seçiniz...</option>
-            <option value="bekleniyor">Bekleniyor</option>
-            <option value="hazırlaniyor">Hazırlanıyor</option>
-            <option value="imzalandi">İmzalandı</option>
-            <option value="tamamlandi">Teslim Edildi</option>
+            <option value="Tapu Devri Yapıldı">Tapu Devri Yapıldı</option>
+            <option value="Tapu Devri Bekleniyor">Tapu Devri Bekleniyor</option>
+            <option value="İpotekli">İpotekli</option>
+            <option value="Kiralık">Kiralık</option>
           </select>
         </div>
       </div>
@@ -1155,49 +1155,66 @@ function adminListeyiRender() {
 }
 function ufAlanlariniOlustur() {
   var durum = document.getElementById('uf-durum');
-  durum.textContent = 'Alanlar oluşturuluyor...';
-  var alanlar = [
-    { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},    USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},         USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_YILDIZ',       EDIT_FORM_LABEL:{tr:'Yıldız'},        USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_ODA_TIPI',     EDIT_FORM_LABEL:{tr:'Oda Tipi'},      USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},      USER_TYPE_ID:'integer' },
-    { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},      USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_MULK_TIPI',    EDIT_FORM_LABEL:{tr:'Mülk Tipi'},     USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_SEZON',        EDIT_FORM_LABEL:{tr:'Sezon'},         USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},        USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'}, USER_TYPE_ID:'double' },
-    { FIELD_NAME:'UF_CRM_PESINAT',      EDIT_FORM_LABEL:{tr:'Peşinat'},       USER_TYPE_ID:'double' },
-    { FIELD_NAME:'UF_CRM_TAKSIT',       EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},USER_TYPE_ID:'integer' },
-    { FIELD_NAME:'UF_CRM_FAIZ',         EDIT_FORM_LABEL:{tr:'Faiz (%)'},      USER_TYPE_ID:'double' },
-    { FIELD_NAME:'UF_CRM_SOZLESME_NO',  EDIT_FORM_LABEL:{tr:'Sözleşme No'},   USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_TAPU_TARIHI',  EDIT_FORM_LABEL:{tr:'Tapu Tarihi'},   USER_TYPE_ID:'date' },
-    { FIELD_NAME:'UF_CRM_TAPU_DURUM',   EDIT_FORM_LABEL:{tr:'Tapu Durumu'},   USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_OZELLIKLER',   EDIT_FORM_LABEL:{tr:'Tesis Özellikleri (JSON)'}, USER_TYPE_ID:'string' },
-    { FIELD_NAME:'UF_CRM_OZ_DENIZ',     EDIT_FORM_LABEL:{tr:'Denize Sıfır'}, USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_HAVUZ',     EDIT_FORM_LABEL:{tr:'Havuz'},         USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_SPA',       EDIT_FORM_LABEL:{tr:'SPA'},           USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_COCUK',     EDIT_FORM_LABEL:{tr:'Çocuk Kulübü'}, USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_RESTORAN',  EDIT_FORM_LABEL:{tr:'Restoran'},      USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_OTOPARK',   EDIT_FORM_LABEL:{tr:'Otopark'},       USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_WIFI',      EDIT_FORM_LABEL:{tr:'Wi-Fi'},         USER_TYPE_ID:'boolean' },
-    { FIELD_NAME:'UF_CRM_OZ_KLIMA',     EDIT_FORM_LABEL:{tr:'Klima'},         USER_TYPE_ID:'boolean' }
+  durum.innerHTML = 'Alanlar oluşturuluyor...';
+
+  // Enumeration değerleri olan alanlar
+  var enumAlanlar = [
+    { FIELD_NAME:'UF_CRM_YILDIZ', EDIT_FORM_LABEL:{tr:'Yıldız'},
+      values:['1 ⭐','2 ⭐⭐','3 ⭐⭐⭐','4 ⭐⭐⭐⭐','5 ⭐⭐⭐⭐⭐','6 ⭐⭐⭐⭐⭐⭐','7 ⭐⭐⭐⭐⭐⭐⭐'] },
+    { FIELD_NAME:'UF_CRM_MULK_TIPI', EDIT_FORM_LABEL:{tr:'Mülk Tipi'},
+      values:['Devre Tatil','Devremülk (Tapu)','Puan Sistemi'] },
+    { FIELD_NAME:'UF_CRM_SEZON', EDIT_FORM_LABEL:{tr:'Kullanım Sezonu'},
+      values:['Yüksek Sezon','Orta Sezon','Düşük Sezon','Tüm Yıl'] },
+    { FIELD_NAME:'UF_CRM_TAPU_DURUM', EDIT_FORM_LABEL:{tr:'Tapu Durumu'},
+      values:['Tapu Devri Yapıldı','Tapu Devri Bekleniyor','İpotekli','Kiralık'] },
+    { FIELD_NAME:'UF_CRM_TAKSIT', EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},
+      values:['0 (Peşin)','6','12','18','24','36','48','60'] }
   ];
-  var tamam = 0, hata = 0, toplam = alanlar.length;
-  alanlar.forEach(function(alan) {
+
+  // Düz string/sayı alanlar
+  var basitAlanlar = [
+    { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},             USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},                 USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_ODA_TIPI',     EDIT_FORM_LABEL:{tr:'Oda Tipi'},              USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},              USER_TYPE_ID:'integer' },
+    { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},              USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},                USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'},          USER_TYPE_ID:'double'  },
+    { FIELD_NAME:'UF_CRM_PESINAT',      EDIT_FORM_LABEL:{tr:'Peşinat'},               USER_TYPE_ID:'double'  },
+    { FIELD_NAME:'UF_CRM_FAIZ',         EDIT_FORM_LABEL:{tr:'Faiz (%)'},              USER_TYPE_ID:'double'  },
+    { FIELD_NAME:'UF_CRM_SOZLESME_NO',  EDIT_FORM_LABEL:{tr:'Sözleşme No'},           USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_TAPU_TARIHI',  EDIT_FORM_LABEL:{tr:'Tapu Tarihi'},           USER_TYPE_ID:'date'    },
+    { FIELD_NAME:'UF_CRM_OZELLIKLER',   EDIT_FORM_LABEL:{tr:'Seçili Tesis Özellikleri'}, USER_TYPE_ID:'string' }
+  ];
+
+  var log = [];
+  var kalan = basitAlanlar.length + enumAlanlar.length;
+  function bitti(msg) { log.push(msg); kalan--; if(kalan<=0) durum.innerHTML = log.join('<br>'); }
+
+  // Basit alanları oluştur
+  basitAlanlar.forEach(function(alan) {
     BX24.callMethod('crm.deal.userfield.add', {
-      fields: Object.assign({ ENTITY_ID: 'CRM_DEAL', MANDATORY: 'N', SHOW_FILTER: 'Y', SHOW_IN_LIST: 'Y' }, alan)
+      fields: Object.assign({ ENTITY_ID:'CRM_DEAL', MANDATORY:'N', SHOW_FILTER:'Y', SHOW_IN_LIST:'Y' }, alan)
     }, function(r) {
-      if (r.error()) {
-        // Zaten var hatası normal (kod 'ERROR_ALREADY_EXISTS' veya benzeri)
-        hata++;
-      } else {
-        tamam++;
+      if (r.error()) bitti('⚠️ '+alan.FIELD_NAME+' (zaten var ya da hata)');
+      else bitti('✅ '+alan.FIELD_NAME);
+    });
+  });
+
+  // Enum alanları oluştur, sonra değerlerini ekle
+  enumAlanlar.forEach(function(alan) {
+    var enumDegerler = alan.values.map(function(v, i){ return {VALUE: v, SORT: (i+1)*10, DEF:'N'}; });
+    BX24.callMethod('crm.deal.userfield.add', {
+      fields: {
+        ENTITY_ID:'CRM_DEAL', MANDATORY:'N', SHOW_FILTER:'Y', SHOW_IN_LIST:'Y',
+        FIELD_NAME: alan.FIELD_NAME,
+        EDIT_FORM_LABEL: alan.EDIT_FORM_LABEL,
+        USER_TYPE_ID: 'enumeration',
+        LIST: enumDegerler
       }
-      if (tamam + hata === toplam) {
-        durum.innerHTML = '<span style="color:green">✅ ' + tamam + ' alan oluşturuldu</span>' +
-          (hata ? ' <span style="color:#d97706">('+hata+' zaten vardı veya hata)</span>' : '');
-      }
+    }, function(r) {
+      if (r.error()) bitti('⚠️ '+alan.FIELD_NAME+' (zaten var ya da hata)');
+      else bitti('✅ '+alan.FIELD_NAME+' ('+alan.values.length+' seçenek)');
     });
   });
 }
