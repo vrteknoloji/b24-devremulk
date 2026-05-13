@@ -109,6 +109,7 @@ textarea{resize:vertical;font-family:inherit}
 .hafta-wrap .hafta-cb input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
 .hafta-cb.dolu{background:#fee2e2;border-color:#fca5a5;color:#dc2626;cursor:not-allowed;opacity:.85}
 .hafta-cb.dolu input{pointer-events:none}
+.hafta-cb.kismi{background:#fef9c3;border-color:#fde047;color:#92400e}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -695,47 +696,83 @@ function haftaGridYenile() {
     select: ['ID','TITLE','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI']
   }, function(r) {
     var dealListesi = !r.error() ? r.data() : [];
-    var doluHaftalar = {}; // hafta label -> {title, odalar:[]}
+    // Tesis kapasite bilgisi
+    var tesis = TESISLER.find(function(t){ return t.ad === ad; });
+    var kapasite = (tesis && tesis.odaKapasite) || {};
+    var kapasiteVar = Object.keys(kapasite).length > 0;
+    // haftaOdaSayac[hafta_label][oda_label] = { count, titles[] }
+    var haftaOdaSayac = {};
     if (!r.error()) {
       dealListesi.forEach(function(d) {
         if (String(d.ID) === String(STATE.dealId)) return;
-        // Oda tiplerini çöz
         var dOdaRaw = d['UF_CRM_ODA_TIPI'] || '';
         var dOdaArr = Array.isArray(dOdaRaw) ? dOdaRaw : String(dOdaRaw).split(',').filter(Boolean);
         var dOdaLabels = dOdaArr.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); }).filter(Boolean);
-        // Seçili oda tipiyle örtüşüyor mu? (seçili yoksa tümü dolu say)
         var cakisiyorOda = seciliOdalar.length === 0 || dOdaLabels.some(function(o){ return seciliOdalar.indexOf(o) >= 0; });
         if (!cakisiyorOda) return;
-        // Haftaları çöz
         var hafRaw = d['UF_CRM_HAFTA_NO'] || '';
         var hafArr = Array.isArray(hafRaw) ? hafRaw : String(hafRaw).split(',').filter(Boolean);
         hafArr.forEach(function(h){
           var label = HAFTA_ENUM.idToVal[String(h).trim()] || String(h).trim();
-          if (label) doluHaftalar[label] = (d.TITLE || ('Deal #'+d.ID)) + (dOdaLabels.length ? ' ('+dOdaLabels.join(', ')+')' : '');
+          if (!label) return;
+          if (!haftaOdaSayac[label]) haftaOdaSayac[label] = {};
+          var matchingOdalar = seciliOdalar.length ? dOdaLabels.filter(function(o){ return seciliOdalar.indexOf(o) >= 0; }) : dOdaLabels;
+          matchingOdalar.forEach(function(o){
+            if (!haftaOdaSayac[label][o]) haftaOdaSayac[label][o] = { count: 0, titles: [] };
+            haftaOdaSayac[label][o].count++;
+            haftaOdaSayac[label][o].titles.push(d.TITLE || ('Deal #'+d.ID));
+          });
         });
       });
+    }
+    // Hafta için dolu/kısmi/boş durumu hesapla
+    function haftaDurumu(si) {
+      // "dolu": rezervasyon yapılamaz (tüm seçili oda tipleri kapasitesi dolmuş veya kapasite yoksa herhangi biri var)
+      // "kismi": bazı oda tipleri dolu, bazıları değil
+      // "bos": hiç rezervasyon yok veya hiçbiri dolu değil
+      var sayac = haftaOdaSayac[si] || {};
+      if (seciliOdalar.length === 0) {
+        // Oda seçilmemişse eski davranış
+        return Object.keys(sayac).length > 0 ? 'dolu' : 'bos';
+      }
+      var tamDoluSayisi = 0;
+      var kismiDoluSayisi = 0;
+      var tooltip = [];
+      seciliOdalar.forEach(function(o){
+        var info = sayac[o];
+        var count = info ? info.count : 0;
+        var kap = kapasite[o];
+        if (!kap) {
+          // Kapasite bilinmiyor: herhangi bir deal varsa dolu say
+          if (count > 0) { tamDoluSayisi++; tooltip.push(o+': '+count+' rezervasyon (kapasite belirsiz)'); }
+        } else {
+          if (count >= kap) { tamDoluSayisi++; tooltip.push(o+': '+count+'/'+kap+' ⛔ DOLU'); }
+          else if (count > 0) { kismiDoluSayisi++; tooltip.push(o+': '+count+'/'+kap); }
+          else { tooltip.push(o+': 0/'+kap); }
+        }
+      });
+      var durum = tamDoluSayisi === seciliOdalar.length ? 'dolu' : tamDoluSayisi > 0 ? 'kismi' : kismiDoluSayisi > 0 ? 'kismi' : 'bos';
+      return { durum: durum, tooltip: tooltip.join(' | ') };
     }
     var haftaHtml = '';
     for (var i = 1; i <= toplamHafta; i++) {
       var si = String(i);
-      var dolu = !!doluHaftalar[si];
       var chk = mevcutHaftalar.indexOf(si) >= 0 ? ' checked' : '';
-      if (dolu) {
-        haftaHtml += '<label class="hafta-cb dolu" title="⛔ '+doluHaftalar[si]+'"><input type="checkbox" value="'+i+'" disabled/> '+i+'</label>';
+      var dur = haftaDurumu(si);
+      var durum = typeof dur === 'object' ? dur.durum : dur;
+      var tip = typeof dur === 'object' ? dur.tooltip : '';
+      if (durum === 'dolu') {
+        haftaHtml += '<label class="hafta-cb dolu" title="⛔ '+tip+'"><input type="checkbox" value="'+i+'" disabled/> '+i+'</label>';
+      } else if (durum === 'kismi') {
+        haftaHtml += '<label class="hafta-cb kismi" title="⚠️ '+tip+'"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
       } else {
         haftaHtml += '<label class="hafta-cb"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
       }
     }
-    // Doluluk özeti: seçili oda tipi başına kaç dolu / toplam kapasite
-    var tesis = TESISLER.find(function(t){ return t.ad === ad; });
-    var kapasite = (tesis && tesis.odaKapasite) || {};
-    var doluSayisi = Object.keys(doluHaftalar).length;
+    // Doluluk özeti: seçili oda tipi başına kaç deal / kapasite
     var kapasiteMetin = '';
-    if (seciliOdalar.length && Object.keys(kapasite).length) {
+    if (seciliOdalar.length) {
       kapasiteMetin = seciliOdalar.map(function(o){
-        var kap = kapasite[o];
-        if (!kap) return null;
-        // Bu oda tipinde dolu hafta sayısı (benzersiz deal sayısı)
         var doluCount = 0;
         dealListesi.forEach(function(d){
           if (String(d.ID) === String(STATE.dealId)) return;
@@ -744,6 +781,8 @@ function haftaGridYenile() {
           var dOdaLabels2 = dOdaArr2.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); });
           if (dOdaLabels2.indexOf(o) >= 0) doluCount++;
         });
+        var kap = kapasite[o];
+        if (!kap) return '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:#f1f5f9;color:#64748b">'+o+': '+doluCount+' satış</span>';
         var renk = doluCount >= kap ? '#dc2626' : doluCount >= kap*0.8 ? '#d97706' : '#16a34a';
         return '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:#f1f5f9;color:'+renk+'">'+o+': '+doluCount+'/'+kap+' satış</span>';
       }).filter(Boolean).join(' ');
@@ -860,11 +899,14 @@ function kaydet() {
   var haftaWrap = document.getElementById('field-hafta');
   var seciliHaftalar = haftaWrap ? Array.prototype.slice.call(haftaWrap.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
 
-  // Çakışma kontrolü: tesis + hafta + oda tipi üçlüsü
+  // Çakışma kontrolü: kapasite bazlı — tesis + hafta + oda tipi'nde kaç deal var, kapasiteyi aşıyor mu?
   if (tesis && seciliHaftalar.length) {
     setSaveStatus('Kontrol ediliyor...');
     var odaWrap2 = document.getElementById('field-oda-tipi');
     var seciliOdalar2 = odaWrap2 ? Array.prototype.slice.call(odaWrap2.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
+    // Tesis kapasite bilgisini al
+    var tesisBilgi = TESISLER.find(function(t){ return t.ad === tesis; });
+    var odaKapasite = (tesisBilgi && tesisBilgi.odaKapasite) || {};
     var cakisanlar = [];
     var kalan = seciliHaftalar.length;
     seciliHaftalar.forEach(function(hafta) {
@@ -873,21 +915,35 @@ function kaydet() {
         select: ['ID','TITLE','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI']
       }, function(r) {
         if (!r.error()) {
-          r.data().forEach(function(d){
-            if (String(d.ID) === String(STATE.dealId)) return;
-            // Oda tipi örtüşüyor mu?
-            var dOdaRaw = d['UF_CRM_ODA_TIPI'] || '';
-            var dOdaArr = Array.isArray(dOdaRaw) ? dOdaRaw : String(dOdaRaw).split(',').filter(Boolean);
-            var dOdaLabels = dOdaArr.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); }).filter(Boolean);
-            var cakisiyorOda = seciliOdalar2.length === 0 || dOdaLabels.some(function(o){ return seciliOdalar2.indexOf(o) >= 0; });
-            if (cakisiyorOda) cakisanlar.push('Hafta '+hafta+': "'+d.TITLE+'"'+(dOdaLabels.length?' ('+dOdaLabels.join(', ')+')':""));
+          // Her seçili oda tipi için o haftada kaç deal var say
+          seciliOdalar2.forEach(function(oda) {
+            var kapasite = odaKapasite[oda] || 0;
+            var mevcutSatis = r.data().filter(function(d){
+              if (String(d.ID) === String(STATE.dealId)) return false;
+              var dOdaRaw = d['UF_CRM_ODA_TIPI'] || '';
+              var dOdaArr = Array.isArray(dOdaRaw) ? dOdaRaw : String(dOdaRaw).split(',').filter(Boolean);
+              var dOdaLabels = dOdaArr.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); });
+              return dOdaLabels.indexOf(oda) >= 0;
+            });
+            if (kapasite > 0 && mevcutSatis.length >= kapasite) {
+              cakisanlar.push('Hafta ' + hafta + ' / ' + oda + ': kapasite dolu (' + mevcutSatis.length + '/' + kapasite + ')');
+            } else if (kapasite === 0 && mevcutSatis.length > 0) {
+              // Kapasite girilmemişse eski davranış: herhangi bir çakışma uyar
+              cakisanlar.push('Hafta ' + hafta + ' / ' + oda + ': "' + mevcutSatis[0].TITLE + '" (kapasite tanımsız)');
+            }
           });
+          // Oda tipi seçilmemişse genel çakışma kontrolü
+          if (!seciliOdalar2.length) {
+            r.data().forEach(function(d){
+              if (String(d.ID) !== String(STATE.dealId)) cakisanlar.push('Hafta ' + hafta + ': "' + d.TITLE + '"');
+            });
+          }
         }
         kalan--;
         if (kalan === 0) {
           if (cakisanlar.length > 0) {
             setSaveStatus('');
-            showToast('⛔ Çakışan rezervasyon: ' + cakisanlar.join(', '), 'error');
+            showToast('⛔ ' + cakisanlar.join(' | '), 'error');
           } else {
             _kaydetYap();
           }
