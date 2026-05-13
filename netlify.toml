@@ -1,5 +1,12 @@
 [build]
   publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/install.html"
+  to = "/.netlify/functions/install"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
