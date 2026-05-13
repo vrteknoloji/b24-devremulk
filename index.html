@@ -518,7 +518,8 @@ function renderApp() {
   BX24.callBatch({
     odendi: ['app.option.get', {option: optKey}],
     plan:   ['app.option.get', {option: planKey}],
-    ufOda:  ['crm.deal.userfield.list', {filter:{FIELD_NAME:'UF_CRM_ODA_TIPI'}}]
+    ufOda:  ['crm.deal.userfield.list', {filter:{FIELD_NAME:'UF_CRM_ODA_TIPI'}}],
+    ufHafta:['crm.deal.userfield.list', {filter:{FIELD_NAME:'UF_CRM_HAFTA_NO'}}]
   }, function(res){
     if(res.odendi && !res.odendi.error() && res.odendi.data()){
       localStorage.setItem('odeme_'+STATE.dealId, res.odendi.data());
@@ -531,6 +532,12 @@ function renderApp() {
       ODA_ENUM.fieldId = uf.ID;
       ODA_ENUM.idToVal = {}; ODA_ENUM.valToId = {};
       (uf.LIST||[]).forEach(function(item){ ODA_ENUM.idToVal[item.ID]=item.VALUE; ODA_ENUM.valToId[item.VALUE]=item.ID; });
+    }
+    if(res.ufHafta && !res.ufHafta.error() && res.ufHafta.data() && res.ufHafta.data()[0]){
+      var ufh = res.ufHafta.data()[0];
+      HAFTA_ENUM.fieldId = ufh.ID;
+      HAFTA_ENUM.idToVal = {}; HAFTA_ENUM.valToId = {};
+      (ufh.LIST||[]).forEach(function(item){ HAFTA_ENUM.idToVal[item.ID]=item.VALUE; HAFTA_ENUM.valToId[item.VALUE]=item.ID; });
     }
     loadCustomFields(d);
     belgeleriYukle();
@@ -694,6 +701,7 @@ function tesisSecildi(ad) {
 }
 
 var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
+var HAFTA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Hafta enum ID <-> label
 var FIELD_MAP = {
   'field-tesis':'UF_CRM_TESIS_ADI','field-unite':'UF_CRM_UNITE_NO','field-hafta':'UF_CRM_HAFTA_NO',
   'field-oda-tipi':'UF_CRM_ODA_TIPI','field-sehir':'UF_CRM_SEHIR','field-yildiz':'UF_CRM_YILDIZ',
@@ -712,8 +720,11 @@ function loadCustomFields(d) {
   // Tesis dropdown — önce data-loaded-value set edip sonra tesisleriYukle çağırınca seçili gelsin
   var tesisDegeri = d['UF_CRM_TESIS_ADI'] || '';
   var haftaDegeri = d['UF_CRM_HAFTA_NO'] || '';
-  // Eski integer alan: tek sayi olabilir, yeni: "17,35" gibi virgüllü string
-  var haftaStr = String(haftaDegeri).replace(/\s+/g,'');
+  // enumeration MULTIPLE:Y → array of IDs; eski string ise virgüllü sayı
+  var haftaRaw = Array.isArray(haftaDegeri) ? haftaDegeri : String(haftaDegeri).replace(/\s+/g,'').split(',').filter(Boolean);
+  var haftaStr = haftaRaw.map(function(id){
+    return HAFTA_ENUM.idToVal[String(id)] || String(id); // label ("17") ya da direkt sayı
+  }).join(',');
   // UF_CRM_ODA_TIPI: enumeration MULTIPLE=Y → array of enum IDs
   var odaRaw = d['UF_CRM_ODA_TIPI'];
   var odaIds = Array.isArray(odaRaw) ? odaRaw : (odaRaw ? String(odaRaw).split(',') : []);
@@ -835,8 +846,13 @@ function _kaydetYap() {
     if(id==='field-yildiz'||id==='field-sehir') return;
     if(id==='field-hafta'){
       var hw=document.getElementById('field-hafta');
-      var seciliH=hw?Array.prototype.slice.call(hw.querySelectorAll('input:checked')).map(function(cb){return cb.value;}).join(','):'';
-      fields['UF_CRM_HAFTA_NO']=seciliH;
+      var seciliLabels=hw?Array.prototype.slice.call(hw.querySelectorAll('input:checked')).map(function(cb){return cb.value;}):[]; 
+      if(HAFTA_ENUM.fieldId){
+        var seciliHIds=seciliLabels.map(function(v){return HAFTA_ENUM.valToId[v];}).filter(Boolean);
+        fields['UF_CRM_HAFTA_NO']=seciliHIds.length?seciliHIds:seciliLabels;
+      } else {
+        fields['UF_CRM_HAFTA_NO']=seciliLabels.join(',');
+      }
       return;
     }
     if(id==='field-oda-tipi'){
@@ -1308,14 +1324,14 @@ function ufAlanlariniOlustur() {
     { FIELD_NAME:'UF_CRM_TAKSIT', EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},
       values:['0 (Peşin)','6','12','18','24','36','48','60'] },
     { FIELD_NAME:'UF_CRM_ODA_TIPI', EDIT_FORM_LABEL:{tr:'Oda Tipi'}, MULTIPLE:'Y',
-      values:['Studio','1+1','2+1','3+1','Villa','4+1','Bungalov','Dublex'] }
+      values:['Studio','1+1','2+1','3+1','Villa','4+1','Bungalov','Dublex'] },
+    (function(){ var v=[]; for(var i=1;i<=52;i++) v.push(String(i)); return { FIELD_NAME:'UF_CRM_HAFTA_NO', EDIT_FORM_LABEL:{tr:'Hafta No'}, MULTIPLE:'Y', values:v }; })()
   ];
 
   // Düz string/sayı alanlar
   var basitAlanlar = [
     { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},             USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},                 USER_TYPE_ID:'string'  },
-    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},                USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'},          USER_TYPE_ID:'double'  },
