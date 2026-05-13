@@ -510,13 +510,20 @@ function renderApp() {
   var planKey='devremulk_plan_'+STATE.dealId;
   BX24.callBatch({
     odendi: ['app.option.get', {option: optKey}],
-    plan:   ['app.option.get', {option: planKey}]
+    plan:   ['app.option.get', {option: planKey}],
+    ufOda:  ['crm.deal.userfield.list', {filter:{FIELD_NAME:'UF_CRM_ODA_TIPI'}}]
   }, function(res){
     if(res.odendi && !res.odendi.error() && res.odendi.data()){
       localStorage.setItem('odeme_'+STATE.dealId, res.odendi.data());
     }
     if(res.plan && !res.plan.error() && res.plan.data()){
       localStorage.setItem('odeme_plan_'+STATE.dealId, res.plan.data());
+    }
+    if(res.ufOda && !res.ufOda.error() && res.ufOda.data() && res.ufOda.data()[0]){
+      var uf = res.ufOda.data()[0];
+      ODA_ENUM.fieldId = uf.ID;
+      ODA_ENUM.idToVal = {}; ODA_ENUM.valToId = {};
+      (uf.LIST||[]).forEach(function(item){ ODA_ENUM.idToVal[item.ID]=item.VALUE; ODA_ENUM.valToId[item.VALUE]=item.ID; });
     }
     loadCustomFields(d);
     belgeleriYukle();
@@ -655,6 +662,7 @@ function tesisSecildi(ad) {
   haftaSel.innerHTML = haftaOpts;
 }
 
+var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
 var FIELD_MAP = {
   'field-tesis':'UF_CRM_TESIS_ADI','field-unite':'UF_CRM_UNITE_NO','field-hafta':'UF_CRM_HAFTA_NO',
   'field-oda-tipi':'UF_CRM_ODA_TIPI','field-sehir':'UF_CRM_SEHIR','field-yildiz':'UF_CRM_YILDIZ',
@@ -673,13 +681,16 @@ function loadCustomFields(d) {
   // Tesis dropdown — önce data-loaded-value set edip sonra tesisleriYukle çağırınca seçili gelsin
   var tesisDegeri = d['UF_CRM_TESIS_ADI'] || '';
   var haftaDegeri = d['UF_CRM_HAFTA_NO'] || '';
-  var odaDegeri   = d['UF_CRM_ODA_TIPI'] || '';
+  // UF_CRM_ODA_TIPI: enumeration MULTIPLE=Y → array of enum IDs
+  var odaRaw = d['UF_CRM_ODA_TIPI'];
+  var odaIds = Array.isArray(odaRaw) ? odaRaw : (odaRaw ? String(odaRaw).split(',') : []);
+  var odaValues = odaIds.map(function(id){ return ODA_ENUM.idToVal[String(id).trim()] || String(id).trim(); }).filter(Boolean).join(',');
   var tesisEl = document.getElementById('field-tesis');
   var haftaEl = document.getElementById('field-hafta');
   var odaEl   = document.getElementById('field-oda-tipi');
   if (tesisEl) tesisEl.setAttribute('data-loaded-value', tesisDegeri);
   if (haftaEl) haftaEl.setAttribute('data-loaded-value', haftaDegeri);
-  if (odaEl)   odaEl.setAttribute('data-loaded-value', odaDegeri);
+  if (odaEl)   odaEl.setAttribute('data-loaded-value', odaValues);
   tesisleriYukle();
   // Diğer alanlar
   Object.keys(FIELD_MAP).forEach(function(id){
@@ -784,8 +795,14 @@ function _kaydetYap() {
     if(id==='field-yildiz'||id==='field-sehir') return;
     if(id==='field-oda-tipi'){
       var wrap=document.getElementById('field-oda-tipi');
-      var secili=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}).join(', '):'';
-      fields['UF_CRM_ODA_TIPI']=secili;
+      var seciliTexts=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}):[]; 
+      // enum IDs varsa dizi olarak gönder, yoksa metin olarak (eski/string alan uyumu)
+      if(ODA_ENUM.fieldId){
+        var seciliIds=seciliTexts.map(function(v){return ODA_ENUM.valToId[v];}).filter(Boolean);
+        fields['UF_CRM_ODA_TIPI']=seciliIds.length?seciliIds:seciliTexts;
+      } else {
+        fields['UF_CRM_ODA_TIPI']=seciliTexts.join(', ');
+      }
       return;
     }
     var el=document.getElementById(id);
@@ -1019,6 +1036,23 @@ function afOdaEkle() {
   label.innerHTML = '<input type="checkbox" value="'+yeni+'" checked style="width:12px;height:12px;accent-color:#2563eb"/> '+yeni;
   liste.appendChild(label);
   document.getElementById('af-oda-yeni').value = '';
+  // Bitrix24 enum listesine de ekle
+  if (ODA_ENUM.fieldId && !ODA_ENUM.valToId[yeni]) {
+    BX24.callMethod('crm.deal.userfield.update', {
+      id: ODA_ENUM.fieldId,
+      fields: { LIST: [{VALUE: yeni, SORT: 900 + Object.keys(ODA_ENUM.valToId).length * 10, DEF:'N'}] }
+    }, function(r){
+      if (!r.error()) {
+        // Güncel enum map'i için alanı yeniden çek
+        BX24.callMethod('crm.deal.userfield.list',{filter:{FIELD_NAME:'UF_CRM_ODA_TIPI'}},function(r2){
+          if(!r2.error()&&r2.data()&&r2.data()[0]){
+            ODA_ENUM.idToVal={}; ODA_ENUM.valToId={};
+            (r2.data()[0].LIST||[]).forEach(function(item){ODA_ENUM.idToVal[item.ID]=item.VALUE;ODA_ENUM.valToId[item.VALUE]=item.ID;});
+          }
+        });
+      }
+    });
+  }
 }
 function afOdaOku() {
   var liste = document.getElementById('af-oda-liste');
@@ -1225,14 +1259,15 @@ function ufAlanlariniOlustur() {
     { FIELD_NAME:'UF_CRM_TAPU_DURUM', EDIT_FORM_LABEL:{tr:'Tapu Durumu'},
       values:['Tapu Devri Yapıldı','Tapu Devri Bekleniyor','İpotekli','Kiralık'] },
     { FIELD_NAME:'UF_CRM_TAKSIT', EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},
-      values:['0 (Peşin)','6','12','18','24','36','48','60'] }
+      values:['0 (Peşin)','6','12','18','24','36','48','60'] },
+    { FIELD_NAME:'UF_CRM_ODA_TIPI', EDIT_FORM_LABEL:{tr:'Oda Tipi'}, MULTIPLE:'Y',
+      values:['Studio','1+1','2+1','3+1','Villa','4+1','Bungalov','Dublex'] }
   ];
 
   // Düz string/sayı alanlar
   var basitAlanlar = [
     { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},             USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},                 USER_TYPE_ID:'string'  },
-    { FIELD_NAME:'UF_CRM_ODA_TIPI',     EDIT_FORM_LABEL:{tr:'Oda Tipi'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},              USER_TYPE_ID:'integer' },
     { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},                USER_TYPE_ID:'string'  },
@@ -1261,15 +1296,15 @@ function ufAlanlariniOlustur() {
   // Enum alanları oluştur, sonra değerlerini ekle
   enumAlanlar.forEach(function(alan) {
     var enumDegerler = alan.values.map(function(v, i){ return {VALUE: v, SORT: (i+1)*10, DEF:'N'}; });
-    BX24.callMethod('crm.deal.userfield.add', {
-      fields: {
-        ENTITY_ID:'CRM_DEAL', MANDATORY:'N', SHOW_FILTER:'Y', SHOW_IN_LIST:'Y',
-        FIELD_NAME: alan.FIELD_NAME,
-        EDIT_FORM_LABEL: alan.EDIT_FORM_LABEL,
-        USER_TYPE_ID: 'enumeration',
-        LIST: enumDegerler
-      }
-    }, function(r) {
+    var enumFields = {
+      ENTITY_ID:'CRM_DEAL', MANDATORY:'N', SHOW_FILTER:'Y', SHOW_IN_LIST:'Y',
+      FIELD_NAME: alan.FIELD_NAME,
+      EDIT_FORM_LABEL: alan.EDIT_FORM_LABEL,
+      USER_TYPE_ID: 'enumeration',
+      LIST: enumDegerler
+    };
+    if (alan.MULTIPLE) enumFields.MULTIPLE = alan.MULTIPLE;
+    BX24.callMethod('crm.deal.userfield.add', { fields: enumFields }, function(r) {
       if (r.error()) bitti('⚠️ '+alan.FIELD_NAME+' (zaten var ya da hata)');
       else bitti('✅ '+alan.FIELD_NAME+' ('+alan.values.length+' seçenek)');
     });
