@@ -624,7 +624,7 @@ function loadCustomFields(d) {
   Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
   // Ödeme planı verileri varsa otomatik hesapla (takvimi yenile)
   if (d['UF_CRM_SATIS_FIYATI'] && parseFloat(d['UF_CRM_SATIS_FIYATI']) > 0) {
-    setTimeout(function(){ hesaplaOdeme(); }, 100);
+    setTimeout(function(){ hesaplaOdeme(true); }, 400);
   }
 }
 
@@ -675,30 +675,35 @@ function _kaydetYap() {
 
 function yenile(){gizle('main-panel');goster('loading');yukle();}
 
-function hesaplaOdeme(){
+function hesaplaOdeme(silent){
   var sf=parseFloat(document.getElementById('field-satis-fiyati').value)||0;
   var p=parseFloat(document.getElementById('field-pesinat').value)||0;
   var t=parseInt(document.getElementById('field-taksit').value)||0;
   var f=parseFloat(document.getElementById('field-faiz').value)||0;
-  if(!sf){showToast('Lütfen satış fiyatını girin.','error');return;}
+  var cur=(STATE.deal&&STATE.deal.CURRENCY_ID)||'TRY';
+  if(!sf){if(!silent)showToast('Lütfen satış fiyatını girin.','error');return;}
   var k=sf-p, ay=0, top=sf;
   if(t>0&&k>0){
     if(f>0){var af=f/100/12;ay=k*(af*Math.pow(1+af,t))/(Math.pow(1+af,t)-1);}
     else{ay=k/t;}
     top=p+(ay*t);
   }
-  STATE.odeme = { sf:sf, p:p, t:t, f:f, k:k, ay:ay, top:top };
-  document.getElementById('sonuc-pesinat').textContent=formatPara(p,'TRY');
-  document.getElementById('sonuc-kalan').textContent=formatPara(k,'TRY');
-  document.getElementById('sonuc-taksit').textContent=t>0?formatPara(ay,'TRY'):'Peşin';
-  document.getElementById('sonuc-toplam').textContent=formatPara(top,'TRY');
+  STATE.odeme = { sf:sf, p:p, t:t, f:f, k:k, ay:ay, top:top, cur:cur };
+  document.getElementById('sonuc-pesinat').textContent=formatPara(p,cur);
+  document.getElementById('sonuc-kalan').textContent=formatPara(k,cur);
+  document.getElementById('sonuc-taksit').textContent=t>0?formatPara(ay,cur):'Peşin';
+  document.getElementById('sonuc-toplam').textContent=formatPara(top,cur);
   goster('odeme-sonuc');
   var con=document.getElementById('odeme-takvim-container');
   if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';document.getElementById('aldindi-btn-wrap').style.display='none';return;}
-  var now=new Date(),html='<div style="max-height:260px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th></tr></thead><tbody>';
+  // Başlangıç tarihi: deal yaratılma tarihi veya bugün
+  var baslangic = (STATE.deal && STATE.deal.DATE_CREATE) ? new Date(STATE.deal.DATE_CREATE) : new Date();
+  var html='<div style="max-height:260px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th></tr></thead><tbody>';
+  var bugun=new Date();
   for(var i=1;i<=t;i++){
-    var d2=new Date(now.getFullYear(),now.getMonth()+i,1),g=d2<now;
-    html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,'TRY')+'</td><td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:'+(g?'#dcfce7':'#fef3c7')+';color:'+(g?'#16a34a':'#d97706')+';font-weight:600">'+(g?'Ödendi':'Bekliyor')+'</span></td></tr>';
+    var d2=new Date(baslangic.getFullYear(),baslangic.getMonth()+i,1);
+    var g=d2<=bugun;
+    html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,cur)+'</td><td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:'+(g?'#dcfce7':'#fef3c7')+';color:'+(g?'#16a34a':'#d97706')+';font-weight:600">'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</span></td></tr>';
   }
   con.innerHTML=html+'</tbody></table></div>';
   document.getElementById('aldindi-btn-wrap').style.display='';
@@ -708,27 +713,29 @@ function hesaplaOdeme(){
 function aldindiYazdir() {
   var d = STATE.deal || {};
   var o = STATE.odeme || {};
+  var cur = o.cur || (d.CURRENCY_ID) || 'TRY';
   var musteri = '';
   if (STATE.contact) musteri = ((STATE.contact.NAME||'')+' '+(STATE.contact.LAST_NAME||'')).trim();
   else if (d.TITLE) musteri = d.TITLE;
-  document.getElementById('pa-baslik').textContent = 'Deal #' + (d.ID||'') + ' — ' + (d.TITLE||'');
+  document.getElementById('pa-baslik').textContent = d.TITLE || ('Deal #' + (d.ID||''));
   document.getElementById('pa-tarih').textContent = new Date().toLocaleDateString('tr-TR',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('pa-sozlesme').textContent = d['UF_CRM_SOZLESME_NO'] ? 'Sözleşme: ' + d['UF_CRM_SOZLESME_NO'] : '';
   document.getElementById('pa-tesis').textContent = d['UF_CRM_TESIS_ADI'] || '—';
   document.getElementById('pa-hafta').textContent = (d['UF_CRM_HAFTA_NO']?'Hafta '+d['UF_CRM_HAFTA_NO']:'—') + (d['UF_CRM_UNITE_NO']?' / Ünite '+d['UF_CRM_UNITE_NO']:'');
   document.getElementById('pa-oda').textContent = d['UF_CRM_ODA_TIPI'] || '—';
   document.getElementById('pa-musteri').textContent = musteri || '—';
-  document.getElementById('pa-sf').textContent = formatPara(o.sf,'TRY');
-  document.getElementById('pa-pesinat').textContent = formatPara(o.p,'TRY');
-  document.getElementById('pa-taksit').textContent = o.t > 0 ? formatPara(o.ay,'TRY') : 'Peşin';
-  document.getElementById('pa-toplam').textContent = formatPara(o.top,'TRY');
-  // Taksit tablosu
+  document.getElementById('pa-sf').textContent = formatPara(o.sf, cur);
+  document.getElementById('pa-pesinat').textContent = formatPara(o.p, cur);
+  document.getElementById('pa-taksit').textContent = o.t > 0 ? formatPara(o.ay, cur) : 'Peşin';
+  document.getElementById('pa-toplam').textContent = formatPara(o.top, cur);
   var html = '';
+  var baslangic = (STATE.deal && STATE.deal.DATE_CREATE) ? new Date(STATE.deal.DATE_CREATE) : new Date();
+  var bugun = new Date();
   if (o.t > 0) {
-    var now = new Date();
     for (var i = 1; i <= o.t; i++) {
-      var d2 = new Date(now.getFullYear(), now.getMonth()+i, 1), g = d2 < now;
-      html += '<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(o.ay,'TRY')+'</td><td>'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</td></tr>';
+      var d2 = new Date(baslangic.getFullYear(), baslangic.getMonth()+i, 1);
+      var g = d2 <= bugun;
+      html += '<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(o.ay,cur)+'</td><td>'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</td></tr>';
     }
   } else {
     html = '<tr><td colspan="4" style="text-align:center">Peşin Ödeme</td></tr>';
