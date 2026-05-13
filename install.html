@@ -76,7 +76,13 @@ BX24.init(function() {
 
 window.adminAc = function() {
   var base = window.location.href.split('/install.html')[0];
-  window.open(base + '/admin.html', '_blank');
+  var adminUrl = base + '/admin.html';
+  // Bitrix24 iframe içinde yeni sekme açmak bloklanabilir — top frame'de aç
+  if (window.top && window.top !== window) {
+    window.top.open(adminUrl, '_blank');
+  } else {
+    window.open(adminUrl, '_blank');
+  }
 };
 
 window.kurulum = function() {

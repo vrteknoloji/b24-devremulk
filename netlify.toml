@@ -3,7 +3,7 @@
   functions = "netlify/functions"
 
 [functions]
-  included_files = ["index.html", "install.html"]
+  included_files = ["index.html", "install.html", "admin.html"]
 
 [[redirects]]
   from = "/install.html"
@@ -14,6 +14,12 @@
 [[redirects]]
   from = "/index.html"
   to = "/.netlify/functions/index"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin.html"
+  to = "/.netlify/functions/admin"
   status = 200
   force = true
 
