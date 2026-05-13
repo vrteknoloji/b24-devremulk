@@ -196,12 +196,12 @@ textarea{resize:vertical;font-family:inherit}
           </div>
           <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: A-204"/></div>
           <div class="field-group">
-            <label>Hafta No</label>
-            <div id="field-hafta" class="hafta-wrap"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
-          </div>
-          <div class="field-group">
             <label>Oda Tipi</label>
             <div id="field-oda-tipi" class="oda-tipi-wrap checked-style"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
+          </div>
+          <div class="field-group">
+            <label>Hafta No</label>
+            <div id="field-hafta" class="hafta-wrap"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
           </div>
         </div>
       </div>
@@ -683,6 +683,11 @@ function haftaGridYenile() {
   // Seçili oda tiplerini oku
   var odaWrap = document.getElementById('field-oda-tipi');
   var seciliOdalar = odaWrap ? Array.prototype.slice.call(odaWrap.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
+  // Oda tipi seçilmemişse hafta grid'i gösterme
+  if (seciliOdalar.length === 0) {
+    haftaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Önce oda tipi seçin...</span>';
+    return;
+  }
   haftaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Rezervasyonlar kontrol ediliyor...</span>';
   BX24.callMethod('crm.deal.list', {
     filter: { 'UF_CRM_TESIS_ADI': ad },
