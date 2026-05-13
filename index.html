@@ -905,8 +905,6 @@ function adminModalAc() {
   document.getElementById('admin-sifre-hata').style.display = 'none';
   document.getElementById('admin-login').style.display = 'block';
   document.getElementById('admin-content').style.display = 'none';
-  // Özellik listesini sıfırla
-  AOZ_LISTE = AOZ_VARSAYILAN.map(function(a){return {ad:a,secili:false};});
 }
 function adminModalKapat() {
   document.getElementById('admin-modal').classList.remove('open');
@@ -925,18 +923,38 @@ function adminGiris() {
   });
 }
 function adminTesisleriYukle() {
-  _tesisListesiGetir(function(list) {
-    ADMIN_TESISLER = list;
-    adminListeyiRender();
-    tesisleriYukle();
+  aozEkstralarYukle(function(){
+    _tesisListesiGetir(function(list) {
+      ADMIN_TESISLER = list;
+      adminListeyiRender();
+      tesisleriYukle();
+      // Form varsayılan görünümü
+      aozRender({});
+    });
   });
 }
 // ---- Dinamik Özellik Listesi ----
 var AOZ_VARSAYILAN = ['Denize Sıfır','Havuz','SPA','Çocuk Kulübü','Restoran','Otopark','Wi-Fi','Klima'];
+var AOZ_EKSTRA = []; // kullanıcının eklediği özel özellikler (kalıcı)
 var AOZ_LISTE = []; // {ad: string, secili: bool}
 
+function aozEkstralarYukle(cb) {
+  var local = localStorage.getItem('devremulk_aoz_ekstra');
+  if (local) { try { AOZ_EKSTRA = JSON.parse(local); } catch(e){ AOZ_EKSTRA=[]; } }
+  BX24.callMethod('app.option.get', {option:'devremulk_aoz_ekstra'}, function(r){
+    if (!r.error() && r.data()) {
+      try { AOZ_EKSTRA = JSON.parse(r.data()); localStorage.setItem('devremulk_aoz_ekstra', r.data()); } catch(e){}
+    }
+    if (cb) cb();
+  });
+}
+function aozEkstralarKaydet() {
+  var json = JSON.stringify(AOZ_EKSTRA);
+  localStorage.setItem('devremulk_aoz_ekstra', json);
+  BX24.callMethod('app.option.set', {options:{'devremulk_aoz_ekstra': json}}, function(){});
+}
+
 function aozRender(mevcut) {
-  // mevcut: eski format {deniz:true,...} veya yeni format {ad:true,...} veya array
   var seciliSet = {};
   if (Array.isArray(mevcut)) {
     mevcut.forEach(function(a){ seciliSet[a] = true; });
@@ -946,8 +964,9 @@ function aozRender(mevcut) {
       if(mevcut[k]) seciliSet[eskiMap[k]||k] = true;
     });
   }
-  // Listeyi oluştur: varsayılan + kayıtlı özel
-  var tumAdlar = AOZ_VARSAYILAN.slice();
+  // Varsayılan + kalıcı ekstralar
+  var tumAdlar = AOZ_VARSAYILAN.concat(AOZ_EKSTRA.filter(function(a){ return AOZ_VARSAYILAN.indexOf(a) === -1; }));
+  // Seçili olup listede olmayan (eski kayıt) da ekle
   Object.keys(seciliSet).forEach(function(a){ if(tumAdlar.indexOf(a)===-1) tumAdlar.push(a); });
   AOZ_LISTE = tumAdlar.map(function(a){ return {ad:a, secili:!!seciliSet[a]}; });
   _aozDomGuncelle();
@@ -956,9 +975,10 @@ function _aozDomGuncelle() {
   var el = document.getElementById('aoz-liste');
   if (!el) return;
   el.innerHTML = AOZ_LISTE.map(function(oz, i){
-    return '<label class="m-cb-label" style="position:relative">' +
+    var sililebilir = AOZ_VARSAYILAN.indexOf(oz.ad) === -1;
+    return '<label class="m-cb-label">' +
       '<input type="checkbox"'+(oz.secili?' checked':'')+' onchange="AOZ_LISTE['+i+'].secili=this.checked"/> '+oz.ad+
-      '<span onclick="aozSil('+i+')" style="margin-left:4px;color:#ef4444;cursor:pointer;font-size:11px">✕</span>'+
+      (sililebilir ? '<span onclick="aozSil('+i+')" style="margin-left:4px;color:#ef4444;cursor:pointer;font-size:11px" title="Kalıcı sil">✕</span>' : '')+
       '</label>';
   }).join('');
 }
@@ -967,16 +987,24 @@ function aozEkle() {
   var ad = inp.value.trim();
   if (!ad) return;
   if (AOZ_LISTE.find(function(o){return o.ad===ad;})) { showToast('Bu özellik zaten var!','error'); return; }
+  // Kalıcı ekstraya da ekle
+  if (AOZ_EKSTRA.indexOf(ad) === -1) {
+    AOZ_EKSTRA.push(ad);
+    aozEkstralarKaydet();
+  }
   AOZ_LISTE.push({ad:ad, secili:true});
   _aozDomGuncelle();
   inp.value = '';
 }
 function aozSil(i) {
+  var ad = AOZ_LISTE[i].ad;
   AOZ_LISTE.splice(i,1);
+  // Kalıcı ekstradan da sil
+  AOZ_EKSTRA = AOZ_EKSTRA.filter(function(a){return a!==ad;});
+  aozEkstralarKaydet();
   _aozDomGuncelle();
 }
 function aozOku() {
-  // Seçili olanları array olarak döndür
   return AOZ_LISTE.filter(function(o){return o.secili;}).map(function(o){return o.ad;});
 }
 
@@ -1007,9 +1035,6 @@ function adminFormSifirla() {
   document.getElementById('af-yildiz').value='';
   document.getElementById('af-oda').value='';
   aozRender({});
-  // Yeni tesis için varsayılan özellikleri göster
-  AOZ_LISTE = AOZ_VARSAYILAN.map(function(a){return {ad:a,secili:false};});
-  _aozDomGuncelle();
   document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
 }
 function adminTesisDuzenle(id) {
