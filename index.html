@@ -227,15 +227,8 @@ textarea{resize:vertical;font-family:inherit}
         </div>
         <div class="card">
           <h3 class="card-title">🏊 Tesis Özellikleri</h3>
-          <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" id="f-deniz"/> Denize Sıfır</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-havuz"/> Yüzme Havuzu</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-spa"/> SPA &amp; Wellness</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-cocuk"/> Çocuk Kulübü</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-restoran"/> Restoran</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-otopark"/> Otopark</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-wifi"/> Wi-Fi</label>
-            <label class="checkbox-label"><input type="checkbox" id="f-klima"/> Klima</label>
+          <div class="checkbox-group" id="tesis-ozellik-container">
+            <p style="color:#94a3b8;font-size:12px">Önce tesis seçin...</p>
           </div>
         </div>
         <div class="card full-width">
@@ -416,7 +409,7 @@ textarea{resize:vertical;font-family:inherit}
 </div>
 
 <script>
-var STATE = { dealId: null, deal: null, contact: null };
+var STATE = { dealId: null, deal: null, contact: null, seciliOzellikler: [] };
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -469,7 +462,7 @@ function yukle() {
     'UF_CRM_TESIS_ADI','UF_CRM_UNITE_NO','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI','UF_CRM_SEHIR','UF_CRM_YILDIZ',
     'UF_CRM_MULK_TIPI','UF_CRM_SEZON','UF_CRM_NOTLAR',
     'UF_CRM_SATIS_FIYATI','UF_CRM_PESINAT','UF_CRM_TAKSIT','UF_CRM_FAIZ',
-    'UF_CRM_SOZLESME_NO','UF_CRM_TAPU_TARIHI','UF_CRM_TAPU_DURUM',
+    'UF_CRM_SOZLESME_NO','UF_CRM_TAPU_TARIHI','UF_CRM_TAPU_DURUM','UF_CRM_OZELLIKLER',
     'UF_CRM_OZ_DENIZ','UF_CRM_OZ_HAVUZ','UF_CRM_OZ_SPA','UF_CRM_OZ_COCUK',
     'UF_CRM_OZ_RESTORAN','UF_CRM_OZ_OTOPARK','UF_CRM_OZ_WIFI','UF_CRM_OZ_KLIMA'
   ];
@@ -592,6 +585,33 @@ function tesisleriYukle() {
   });
 }
 
+function ozelliklerRender(tesisOzList, seciliList) {
+  // tesisOzList: tesisin tanımlı özellikleri (array of string veya eski obje)
+  var ozAdlar;
+  if (Array.isArray(tesisOzList)) {
+    ozAdlar = tesisOzList;
+  } else {
+    var eskiMap2 = {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'};
+    ozAdlar = Object.keys(tesisOzList).filter(function(k){return tesisOzList[k];}).map(function(k){return eskiMap2[k]||k;});
+  }
+  if (!ozAdlar.length) { 
+    document.getElementById('tesis-ozellik-container').innerHTML='<p style="color:#94a3b8;font-size:12px">Bu tesis için özellik tanımlı değil.</p>';
+    return;
+  }
+  document.getElementById('tesis-ozellik-container').innerHTML = ozAdlar.map(function(oz, i){
+    var secili = seciliList.indexOf(oz) > -1;
+    return '<label class="checkbox-label"><input type="checkbox" id="foz-'+i+'"'+(secili?' checked':'')+'/> '+oz+'</label>';
+  }).join('');
+}
+function ozelliklerOku() {
+  var con = document.getElementById('tesis-ozellik-container');
+  var secili = [];
+  con.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+    if(cb.checked) secili.push(cb.parentElement.textContent.trim());
+  });
+  return secili;
+}
+
 function tesisSecildi(ad) {
   var tesis = TESISLER.find(function(t){ return t.ad === ad; });
   if (!tesis) {
@@ -602,7 +622,9 @@ function tesisSecildi(ad) {
     return;
   }
   document.getElementById('field-sehir').value = tesis.sehir;
-  document.getElementById('field-yildiz').value = tesis.yildiz ? '⭐'.repeat(parseInt(tesis.yildiz)) + ' ' + tesis.yildiz + ' Yıldız' : '';
+  document.getElementById('field-yildiz').value = tesis.yildiz ? tesis.yildiz + ' ⭐' : '';
+  // Tesis özelliklerini dinamik render et
+  ozelliklerRender(tesis.ozellikler || [], STATE.seciliOzellikler || []);
   // Oda tipleri
   var odaSel = document.getElementById('field-oda-tipi');
   var mevcutOda = odaSel.getAttribute('data-loaded-value') || '';
@@ -655,7 +677,19 @@ function loadCustomFields(d) {
   });
   // Şehir ve yıldız tesisSecildi ile dolacak, ama kayıtlı değer yoksa direkt yaz
   if (d['UF_CRM_SEHIR']) document.getElementById('field-sehir').setAttribute('data-loaded-value', d['UF_CRM_SEHIR']);
-  Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
+  // Eski UF boolean alanlarını yeni formata çevir (geriye dönük uyumluluk)
+  var eskiOzMap = {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'};
+  var eskiSecili = [];
+  Object.keys(CHECKBOX_MAP).forEach(function(id){
+    var v=d[CHECKBOX_MAP[id]];
+    if(v==='Y'||v==='1'||v===true){ eskiSecili.push(eskiOzMap[id.replace('f-','')]||id); }
+  });
+  // Yeni JSON alan varsa onu kullan, yoksa eski UF'den
+  var ozJson = d['UF_CRM_OZELLIKLER'];
+  var seciliOzList = [];
+  if (ozJson) { try { seciliOzList = JSON.parse(ozJson); } catch(e){ seciliOzList = eskiSecili; } }
+  else { seciliOzList = eskiSecili; }
+  STATE.seciliOzellikler = seciliOzList;
 
   // ---- Ödeme planını yükle: önce localStorage, UF varsa onu tercih et ----
   var planKey = 'odeme_plan_' + STATE.dealId;
@@ -737,7 +771,8 @@ function _kaydetYap() {
     var el=document.getElementById(id);
     if(el) fields[FIELD_MAP[id]]=el.value;
   });
-  Object.keys(CHECKBOX_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[CHECKBOX_MAP[id]]=el.checked?'Y':'N';});
+  // Dinamik özellikler JSON olarak kaydet
+  fields['UF_CRM_OZELLIKLER'] = JSON.stringify(ozelliklerOku());
   // Ödeme planı da kaydet
   var odeme = STATE.odeme || {};
   if(odeme.sf) fields['UF_CRM_SATIS_FIYATI']=String(odeme.sf);
@@ -1138,6 +1173,7 @@ function ufAlanlariniOlustur() {
     { FIELD_NAME:'UF_CRM_SOZLESME_NO',  EDIT_FORM_LABEL:{tr:'Sözleşme No'},   USER_TYPE_ID:'string' },
     { FIELD_NAME:'UF_CRM_TAPU_TARIHI',  EDIT_FORM_LABEL:{tr:'Tapu Tarihi'},   USER_TYPE_ID:'date' },
     { FIELD_NAME:'UF_CRM_TAPU_DURUM',   EDIT_FORM_LABEL:{tr:'Tapu Durumu'},   USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_OZELLIKLER',   EDIT_FORM_LABEL:{tr:'Tesis Özellikleri (JSON)'}, USER_TYPE_ID:'string' },
     { FIELD_NAME:'UF_CRM_OZ_DENIZ',     EDIT_FORM_LABEL:{tr:'Denize Sıfır'}, USER_TYPE_ID:'boolean' },
     { FIELD_NAME:'UF_CRM_OZ_HAVUZ',     EDIT_FORM_LABEL:{tr:'Havuz'},         USER_TYPE_ID:'boolean' },
     { FIELD_NAME:'UF_CRM_OZ_SPA',       EDIT_FORM_LABEL:{tr:'SPA'},           USER_TYPE_ID:'boolean' },
