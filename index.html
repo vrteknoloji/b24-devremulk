@@ -121,7 +121,22 @@ textarea{resize:vertical;font-family:inherit}
 .admin-btn{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .admin-btn:hover{background:#e2e8f0}
 .sifre-section{display:flex;gap:8px;align-items:flex-end}
-  </style>
+  @media print{
+  body *{visibility:hidden}
+  #print-aldindi,#print-aldindi *{visibility:visible}
+  #print-aldindi{position:fixed;inset:0;background:#fff;padding:32px;font-size:13px;color:#000}
+}
+.print-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center}
+.print-modal.open{display:flex}
+.print-box{background:#fff;border-radius:10px;width:680px;max-height:90vh;overflow-y:auto;padding:32px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.print-box h1{font-size:18px;font-weight:800;color:#1e293b;margin-bottom:4px}
+.print-box .print-sub{font-size:13px;color:#64748b;margin-bottom:20px}
+.print-box table{width:100%;border-collapse:collapse;font-size:12px}
+.print-box th{background:#f1f5f9;padding:7px 10px;text-align:left;font-weight:700;border:1px solid #e2e8f0}
+.print-box td{padding:7px 10px;border:1px solid #e2e8f0}
+.print-box .print-total{margin-top:16px;padding:12px 16px;background:#eff6ff;border-radius:8px;font-size:13px}
+.print-box .print-actions{margin-top:16px;display:flex;gap:8px;justify-content:flex-end}
+</style>
 </head>
 <body>
 <div id="app">
@@ -262,6 +277,9 @@ textarea{resize:vertical;font-family:inherit}
       <div class="card">
         <h3 class="card-title">📅 Ödeme Takvimi</h3>
         <div id="odeme-takvim-container"><p class="empty-state">Ödeme planını hesapladıktan sonra takvim oluşturulacak.</p></div>
+        <div id="aldindi-btn-wrap" style="margin-top:10px;display:none">
+          <button class="btn btn-secondary" onclick="aldindiYazdir()">🖨️ Ödeme Aldındısı Yazdır</button>
+        </div>
       </div>
     </div>
     <div class="tab-content hidden" id="tab-belgeler">
@@ -293,6 +311,43 @@ textarea{resize:vertical;font-family:inherit}
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
+
+<div class="print-modal" id="print-modal">
+  <div class="print-box" id="print-aldindi">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h1>Ödeme Aldındısı</h1>
+        <div class="print-sub" id="pa-baslik"></div>
+      </div>
+      <div style="text-align:right;font-size:12px;color:#64748b">
+        <div id="pa-tarih"></div>
+        <div id="pa-sozlesme"></div>
+      </div>
+    </div>
+    <table style="margin-bottom:12px">
+      <tr><th style="width:40%">Tesis</th><td id="pa-tesis"></td></tr>
+      <tr><th>Hafta / Ünite</th><td id="pa-hafta"></td></tr>
+      <tr><th>Oda Tipi</th><td id="pa-oda"></td></tr>
+      <tr><th>Müşteri</th><td id="pa-musteri"></td></tr>
+    </table>
+    <table>
+      <thead><tr><th>#</th><th>Tarih</th><th>Tutar</th><th>Durum</th></tr></thead>
+      <tbody id="pa-taksitler"></tbody>
+    </table>
+    <div class="print-total">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+        <div><div style="font-size:11px;color:#64748b;font-weight:600">SATIŞ FİYATI</div><div style="font-weight:700" id="pa-sf"></div></div>
+        <div><div style="font-size:11px;color:#64748b;font-weight:600">PEŞİNAT</div><div style="font-weight:700" id="pa-pesinat"></div></div>
+        <div><div style="font-size:11px;color:#64748b;font-weight:600">AYLIK TAKSİT</div><div style="font-weight:700" id="pa-taksit"></div></div>
+        <div><div style="font-size:11px;color:#64748b;font-weight:600">TOPLAM ÖDENECEK</div><div style="font-weight:800;color:#2563eb" id="pa-toplam"></div></div>
+      </div>
+    </div>
+    <div class="print-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="document.getElementById('print-modal').classList.remove('open')">Kapat</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Yazdır / PDF</button>
+    </div>
+  </div>
+</div>
 
 <!-- YÖNETİCİ PANELİ MODAL -->
 <div class="modal-overlay" id="admin-modal">
@@ -567,6 +622,10 @@ function loadCustomFields(d) {
   // Şehir ve yıldız tesisSecildi ile dolacak, ama kayıtlı değer yoksa direkt yaz
   if (d['UF_CRM_SEHIR']) document.getElementById('field-sehir').setAttribute('data-loaded-value', d['UF_CRM_SEHIR']);
   Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
+  // Ödeme planı verileri varsa otomatik hesapla (takvimi yenile)
+  if (d['UF_CRM_SATIS_FIYATI'] && parseFloat(d['UF_CRM_SATIS_FIYATI']) > 0) {
+    setTimeout(function(){ hesaplaOdeme(); }, 100);
+  }
 }
 
 function kaydet() {
@@ -628,20 +687,54 @@ function hesaplaOdeme(){
     else{ay=k/t;}
     top=p+(ay*t);
   }
+  STATE.odeme = { sf:sf, p:p, t:t, f:f, k:k, ay:ay, top:top };
   document.getElementById('sonuc-pesinat').textContent=formatPara(p,'TRY');
   document.getElementById('sonuc-kalan').textContent=formatPara(k,'TRY');
   document.getElementById('sonuc-taksit').textContent=t>0?formatPara(ay,'TRY'):'Peşin';
   document.getElementById('sonuc-toplam').textContent=formatPara(top,'TRY');
   goster('odeme-sonuc');
   var con=document.getElementById('odeme-takvim-container');
-  if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';return;}
+  if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';document.getElementById('aldindi-btn-wrap').style.display='none';return;}
   var now=new Date(),html='<div style="max-height:260px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th></tr></thead><tbody>';
   for(var i=1;i<=t;i++){
     var d2=new Date(now.getFullYear(),now.getMonth()+i,1),g=d2<now;
     html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,'TRY')+'</td><td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:'+(g?'#dcfce7':'#fef3c7')+';color:'+(g?'#16a34a':'#d97706')+';font-weight:600">'+(g?'Ödendi':'Bekliyor')+'</span></td></tr>';
   }
   con.innerHTML=html+'</tbody></table></div>';
+  document.getElementById('aldindi-btn-wrap').style.display='';
   BX24.fitWindow();
+}
+
+function aldindiYazdir() {
+  var d = STATE.deal || {};
+  var o = STATE.odeme || {};
+  var musteri = '';
+  if (STATE.contact) musteri = ((STATE.contact.NAME||'')+' '+(STATE.contact.LAST_NAME||'')).trim();
+  else if (d.TITLE) musteri = d.TITLE;
+  document.getElementById('pa-baslik').textContent = 'Deal #' + (d.ID||'') + ' — ' + (d.TITLE||'');
+  document.getElementById('pa-tarih').textContent = new Date().toLocaleDateString('tr-TR',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('pa-sozlesme').textContent = d['UF_CRM_SOZLESME_NO'] ? 'Sözleşme: ' + d['UF_CRM_SOZLESME_NO'] : '';
+  document.getElementById('pa-tesis').textContent = d['UF_CRM_TESIS_ADI'] || '—';
+  document.getElementById('pa-hafta').textContent = (d['UF_CRM_HAFTA_NO']?'Hafta '+d['UF_CRM_HAFTA_NO']:'—') + (d['UF_CRM_UNITE_NO']?' / Ünite '+d['UF_CRM_UNITE_NO']:'');
+  document.getElementById('pa-oda').textContent = d['UF_CRM_ODA_TIPI'] || '—';
+  document.getElementById('pa-musteri').textContent = musteri || '—';
+  document.getElementById('pa-sf').textContent = formatPara(o.sf,'TRY');
+  document.getElementById('pa-pesinat').textContent = formatPara(o.p,'TRY');
+  document.getElementById('pa-taksit').textContent = o.t > 0 ? formatPara(o.ay,'TRY') : 'Peşin';
+  document.getElementById('pa-toplam').textContent = formatPara(o.top,'TRY');
+  // Taksit tablosu
+  var html = '';
+  if (o.t > 0) {
+    var now = new Date();
+    for (var i = 1; i <= o.t; i++) {
+      var d2 = new Date(now.getFullYear(), now.getMonth()+i, 1), g = d2 < now;
+      html += '<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(o.ay,'TRY')+'</td><td>'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</td></tr>';
+    }
+  } else {
+    html = '<tr><td colspan="4" style="text-align:center">Peşin Ödeme</td></tr>';
+  }
+  document.getElementById('pa-taksitler').innerHTML = html;
+  document.getElementById('print-modal').classList.add('open');
 }
 
 var BELGELER=[
