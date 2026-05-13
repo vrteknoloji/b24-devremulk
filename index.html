@@ -102,6 +102,11 @@ textarea{resize:vertical;font-family:inherit}
 .oda-tipi-wrap .oda-cb:hover{background:#eff6ff;border-color:#93c5fd}
 .oda-tipi-wrap .oda-cb input{width:13px;height:13px;accent-color:var(--primary);pointer-events:none}
 .oda-tipi-wrap.checked-style .oda-cb:has(input:checked){background:#dbeafe;border-color:var(--primary);color:var(--primary);font-weight:600}
+.hafta-wrap{display:flex;flex-wrap:wrap;gap:5px;padding:6px 0;max-height:160px;overflow-y:auto}
+.hafta-wrap .hafta-cb{display:inline-flex;align-items:center;justify-content:center;width:38px;height:30px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:#f8fafc;transition:all .1s;user-select:none}
+.hafta-wrap .hafta-cb:hover{background:#eff6ff;border-color:#93c5fd}
+.hafta-wrap .hafta-cb:has(input:checked){background:#dbeafe;border-color:var(--primary);color:var(--primary)}
+.hafta-wrap .hafta-cb input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -190,7 +195,7 @@ textarea{resize:vertical;font-family:inherit}
           <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: A-204"/></div>
           <div class="field-group">
             <label>Hafta No</label>
-            <select id="field-hafta"><option value="">Tesis seçin...</option></select>
+            <div id="field-hafta" class="hafta-wrap"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
           </div>
           <div class="field-group">
             <label>Oda Tipi</label>
@@ -634,8 +639,8 @@ function tesisSecildi(ad) {
   if (!tesis) {
     document.getElementById('field-sehir').value = '';
     document.getElementById('field-yildiz').value = '';
-    document.getElementById('field-oda-tipi').innerHTML = '<option value="">Tesis seçin...</option>';
-    document.getElementById('field-hafta').innerHTML = '<option value="">Tesis seçin...</option>';
+    document.getElementById('field-oda-tipi').innerHTML = '<span style="color:#94a3b8;font-size:12px">Tesis seçin...</span>';
+    document.getElementById('field-hafta').innerHTML = '<span style="color:#94a3b8;font-size:12px">Tesis seçin...</span>';
     return;
   }
   document.getElementById('field-sehir').value = tesis.sehir;
@@ -651,15 +656,16 @@ function tesisSecildi(ad) {
     var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
     return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+'/> '+o+'</label>';
   }).join(''); }
-  // Hafta seçenekleri
-  var haftaSel = document.getElementById('field-hafta');
-  var mevcutHafta = haftaSel.getAttribute('data-loaded-value') || '';
+  // Hafta seçenekleri — çoktan seçmeli checkbox grid
+  var haftaWrap = document.getElementById('field-hafta');
+  var mevcutHaftalar = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
   var toplamHafta = tesis.haftaSayi || 52;
-  var haftaOpts = '<option value="">Seçiniz...</option>';
+  var haftaHtml = '';
   for (var i = 1; i <= toplamHafta; i++) {
-    haftaOpts += '<option value="'+i+'"'+(String(i)===String(mevcutHafta)?' selected':'')+'>Hafta '+i+'</option>';
+    var chk = mevcutHaftalar.indexOf(String(i)) >= 0 ? ' checked' : '';
+    haftaHtml += '<label class="hafta-cb"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
   }
-  haftaSel.innerHTML = haftaOpts;
+  haftaWrap.innerHTML = haftaHtml;
 }
 
 var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
@@ -681,6 +687,8 @@ function loadCustomFields(d) {
   // Tesis dropdown — önce data-loaded-value set edip sonra tesisleriYukle çağırınca seçili gelsin
   var tesisDegeri = d['UF_CRM_TESIS_ADI'] || '';
   var haftaDegeri = d['UF_CRM_HAFTA_NO'] || '';
+  // Eski integer alan: tek sayi olabilir, yeni: "17,35" gibi virgüllü string
+  var haftaStr = String(haftaDegeri).replace(/\s+/g,'');
   // UF_CRM_ODA_TIPI: enumeration MULTIPLE=Y → array of enum IDs
   var odaRaw = d['UF_CRM_ODA_TIPI'];
   var odaIds = Array.isArray(odaRaw) ? odaRaw : (odaRaw ? String(odaRaw).split(',') : []);
@@ -689,7 +697,7 @@ function loadCustomFields(d) {
   var haftaEl = document.getElementById('field-hafta');
   var odaEl   = document.getElementById('field-oda-tipi');
   if (tesisEl) tesisEl.setAttribute('data-loaded-value', tesisDegeri);
-  if (haftaEl) haftaEl.setAttribute('data-loaded-value', haftaDegeri);
+  if (haftaEl) haftaEl.setAttribute('data-loaded-value', haftaStr);
   if (odaEl)   odaEl.setAttribute('data-loaded-value', odaValues);
   tesisleriYukle();
   // Diğer alanlar
@@ -761,27 +769,34 @@ function loadCustomFields(d) {
 
 function kaydet() {
   var tesis = (document.getElementById('field-tesis')||{}).value||'';
-  var hafta  = (document.getElementById('field-hafta')||{}).value||'';
+  var haftaWrap = document.getElementById('field-hafta');
+  var seciliHaftalar = haftaWrap ? Array.prototype.slice.call(haftaWrap.querySelectorAll('input:checked')).map(function(cb){return cb.value;}) : [];
 
-  // Çakışma kontrolü: aynı tesis + aynı hafta başka deal'de var mı?
-  if (tesis && hafta) {
+  // Çakışma kontrolü: her seçili hafta için başka deal'de var mı?
+  if (tesis && seciliHaftalar.length) {
     setSaveStatus('Kontrol ediliyor...');
-    BX24.callMethod('crm.deal.list', {
-      filter: { 'UF_CRM_TESIS_ADI': tesis, 'UF_CRM_HAFTA_NO': hafta },
-      select: ['ID','TITLE','UF_CRM_TESIS_ADI','UF_CRM_HAFTA_NO']
-    }, function(r) {
-      if (!r.error()) {
-        var liste = r.data();
-        // Kendisi hariç başka deal var mı?
-        var cakisan = liste.filter(function(d){ return String(d.ID) !== String(STATE.dealId); });
-        if (cakisan.length > 0) {
-          setSaveStatus('');
-          showToast('⛔ ' + tesis + ' — Hafta ' + hafta + ' zaten "' + cakisan[0].TITLE + '" deal\'ine rezerve edilmiş!', 'error');
-          return;
+    var cakisanlar = [];
+    var kalan = seciliHaftalar.length;
+    seciliHaftalar.forEach(function(hafta) {
+      BX24.callMethod('crm.deal.list', {
+        filter: { 'UF_CRM_TESIS_ADI': tesis, 'UF_CRM_HAFTA_NO': hafta },
+        select: ['ID','TITLE','UF_CRM_HAFTA_NO']
+      }, function(r) {
+        if (!r.error()) {
+          r.data().forEach(function(d){
+            if (String(d.ID) !== String(STATE.dealId)) cakisanlar.push('Hafta '+hafta+': "'+d.TITLE+'"');
+          });
         }
-      }
-      // Çakışma yok, kaydet
-      _kaydetYap();
+        kalan--;
+        if (kalan === 0) {
+          if (cakisanlar.length > 0) {
+            setSaveStatus('');
+            showToast('⛔ Çakışan rezervasyon: ' + cakisanlar.join(', '), 'error');
+          } else {
+            _kaydetYap();
+          }
+        }
+      });
     });
   } else {
     _kaydetYap();
@@ -793,7 +808,12 @@ function _kaydetYap() {
   Object.keys(FIELD_MAP).forEach(function(id){
     // yıldız/şehir readonly display field — skip, tesis adından otomatik geliyor
     if(id==='field-yildiz'||id==='field-sehir') return;
-    if(id==='field-oda-tipi'){
+    if(id==='field-hafta'){
+      var hw=document.getElementById('field-hafta');
+      var seciliH=hw?Array.prototype.slice.call(hw.querySelectorAll('input:checked')).map(function(cb){return cb.value;}).join(','):'';
+      fields['UF_CRM_HAFTA_NO']=seciliH;
+      return;
+    }
       var wrap=document.getElementById('field-oda-tipi');
       var seciliTexts=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}):[]; 
       // enum IDs varsa dizi olarak gönder, yoksa metin olarak (eski/string alan uyumu)
@@ -907,7 +927,9 @@ function aldindiYazdir() {
   document.getElementById('pa-tarih').textContent = new Date().toLocaleDateString('tr-TR',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('pa-sozlesme').textContent = d['UF_CRM_SOZLESME_NO'] ? 'Sözleşme: ' + d['UF_CRM_SOZLESME_NO'] : '';
   document.getElementById('pa-tesis').textContent = d['UF_CRM_TESIS_ADI'] || '—';
-  document.getElementById('pa-hafta').textContent = (d['UF_CRM_HAFTA_NO']?'Hafta '+d['UF_CRM_HAFTA_NO']:'—') + (d['UF_CRM_UNITE_NO']?' / Ünite '+d['UF_CRM_UNITE_NO']:'');
+  var haftaRaw = d['UF_CRM_HAFTA_NO'] || '';
+  var haftaText = haftaRaw ? haftaRaw.split(',').map(function(h){return 'Hafta '+h.trim();}).join(', ') : '—';
+  document.getElementById('pa-hafta').textContent = haftaText + (d['UF_CRM_UNITE_NO']?' / Ünite '+d['UF_CRM_UNITE_NO']:'');
   document.getElementById('pa-oda').textContent = d['UF_CRM_ODA_TIPI'] || '—';
   document.getElementById('pa-musteri').textContent = musteri || '—';
   document.getElementById('pa-sf').textContent = formatPara(o.sf, cur);
@@ -1268,7 +1290,7 @@ function ufAlanlariniOlustur() {
   var basitAlanlar = [
     { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},             USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},                 USER_TYPE_ID:'string'  },
-    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},              USER_TYPE_ID:'integer' },
+    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},              USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},                USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'},          USER_TYPE_ID:'double'  },
