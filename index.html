@@ -498,19 +498,27 @@ function renderApp() {
   badge.className = (stage.indexOf('WON')>-1) ? 'badge success' : (stage.indexOf('LOSE')>-1) ? 'badge danger' : 'badge';
   // Ödendi durumlarını app.option'dan senkronize et
   var optKey='devremulk_odeme_'+STATE.dealId;
-  BX24.callMethod('app.option.get',{option:optKey},function(r){
-    if(!r.error()&&r.data()){localStorage.setItem('odeme_'+STATE.dealId,r.data());}
+  var planKey='devremulk_plan_'+STATE.dealId;
+  BX24.callBatch({
+    odendi: ['app.option.get', {option: optKey}],
+    plan:   ['app.option.get', {option: planKey}]
+  }, function(res){
+    if(res.odendi && !res.odendi.error() && res.odendi.data()){
+      localStorage.setItem('odeme_'+STATE.dealId, res.odendi.data());
+    }
+    if(res.plan && !res.plan.error() && res.plan.data()){
+      localStorage.setItem('odeme_plan_'+STATE.dealId, res.plan.data());
+    }
+    loadCustomFields(d);
+    belgeleriYukle();
+    goster('main-panel');
+    gizle('loading');
+    BX24.fitWindow();
   });
-  loadCustomFields(d);
-  belgeleriYukle();
-  goster('main-panel');
-  gizle('loading');
-  BX24.fitWindow();
+  return; // batch callback'te devam eder
 }
 
-// ====== DEPOLAMA: localStorage (basit, güvenilir) ======
-// Tesis listesi tüm kullanıcılarda ortak olsun için BX24.callMethod ile saklanır,
-// ama userOption senkron çalıştığından localStorage kullanıyoruz + Bitrix24 backup.
+// ====== DEPOLAMA
 
 function entityInit(cb) { if (cb) cb(); }
 
@@ -762,9 +770,11 @@ function hesaplaOdeme(silent){
     top=p+(ay*t);
   }
   STATE.odeme = { sf:sf, p:p, t:t, f:f, k:k, ay:ay, top:top, cur:cur };
-  // Ödeme planı girişlerini localStorage'a otomatik kaydet
+  // Ödeme planını hem localStorage hem Bitrix24'e kaydet
   if(STATE.dealId){
-    localStorage.setItem('odeme_plan_'+STATE.dealId, JSON.stringify({sf:sf,p:p,t:t,f:f}));
+    var planData = JSON.stringify({sf:sf,p:p,t:t,f:f});
+    localStorage.setItem('odeme_plan_'+STATE.dealId, planData);
+    BX24.callMethod('app.option.set',{options:{['devremulk_plan_'+STATE.dealId]: planData}},function(){});
   }
   document.getElementById('sonuc-pesinat').textContent=formatPara(p,cur);
   document.getElementById('sonuc-kalan').textContent=formatPara(k,cur);
