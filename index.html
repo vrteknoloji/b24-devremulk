@@ -642,27 +642,48 @@ function loadCustomFields(d) {
   // Şehir ve yıldız tesisSecildi ile dolacak, ama kayıtlı değer yoksa direkt yaz
   if (d['UF_CRM_SEHIR']) document.getElementById('field-sehir').setAttribute('data-loaded-value', d['UF_CRM_SEHIR']);
   Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
-  // Ödeme planı verileri varsa otomatik hesapla (takvimi yenile)
-  if (d['UF_CRM_SATIS_FIYATI'] && parseFloat(d['UF_CRM_SATIS_FIYATI']) > 0) {
-    setTimeout(function(){ hesaplaOdeme(true); }, 400);
-  } else if (STATE.dealId) {
-    // Bitrix24'te kayıtlı değilse localStorage'dan dene
-    var planStr = localStorage.getItem('odeme_plan_'+STATE.dealId);
-    if (planStr) {
-      try {
-        var plan = JSON.parse(planStr);
-        var sfEl=document.getElementById('field-satis-fiyati');
-        var pEl=document.getElementById('field-pesinat');
-        var tEl=document.getElementById('field-taksit');
-        var fEl=document.getElementById('field-faiz');
-        if(sfEl&&plan.sf)sfEl.value=plan.sf;
-        if(pEl&&plan.p)pEl.value=plan.p;
-        if(tEl&&plan.t)tEl.value=plan.t;
-        if(fEl&&plan.f)fEl.value=plan.f;
-        setTimeout(function(){ hesaplaOdeme(true); }, 400);
-      } catch(e){}
-    }
+
+  // ---- Ödeme planını yükle: önce localStorage, UF varsa onu tercih et ----
+  var planKey = 'odeme_plan_' + STATE.dealId;
+  var localPlan = null;
+  try { localPlan = JSON.parse(localStorage.getItem(planKey) || 'null'); } catch(e){}
+
+  var ufSf = parseFloat(d['UF_CRM_SATIS_FIYATI']);
+  var ufP  = parseFloat(d['UF_CRM_PESINAT']);
+  var ufT  = parseInt(d['UF_CRM_TAKSIT']);
+  var ufF  = parseFloat(d['UF_CRM_FAIZ']);
+
+  // UF alanda gerçek değer varsa öncelikli, yoksa localStorage
+  var sf = (ufSf > 0) ? ufSf : (localPlan && localPlan.sf ? localPlan.sf : 0);
+  var p  = (ufSf > 0 && !isNaN(ufP))  ? ufP  : (localPlan && localPlan.p  != null ? localPlan.p  : 0);
+  var t  = (ufSf > 0 && !isNaN(ufT))  ? ufT  : (localPlan && localPlan.t  != null ? localPlan.t  : 0);
+  var f  = (ufSf > 0 && !isNaN(ufF))  ? ufF  : (localPlan && localPlan.f  != null ? localPlan.f  : 0);
+
+  if (sf > 0) {
+    var sfEl = document.getElementById('field-satis-fiyati');
+    var pEl  = document.getElementById('field-pesinat');
+    var tEl  = document.getElementById('field-taksit');
+    var fEl  = document.getElementById('field-faiz');
+    if (sfEl) sfEl.value = sf;
+    if (pEl)  pEl.value  = p;
+    if (tEl)  tEl.value  = t;
+    if (fEl)  fEl.value  = f;
+    setTimeout(function(){ hesaplaOdeme(true); }, 500);
   }
+
+  // Her değişiklikte localStorage'a otomatik kaydet
+  ['field-satis-fiyati','field-pesinat','field-taksit','field-faiz'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(){
+      var plan = {
+        sf: parseFloat(document.getElementById('field-satis-fiyati').value)||0,
+        p:  parseFloat(document.getElementById('field-pesinat').value)||0,
+        t:  parseInt(document.getElementById('field-taksit').value)||0,
+        f:  parseFloat(document.getElementById('field-faiz').value)||0
+      };
+      localStorage.setItem(planKey, JSON.stringify(plan));
+    });
+  });
 }
 
 function kaydet() {
