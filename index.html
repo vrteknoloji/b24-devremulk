@@ -389,7 +389,15 @@ BX24.init(function() {
 });
 
 function yukle() {
-  BX24.callMethod('crm.deal.get', { id: STATE.dealId }, function(res) {
+  var selectFields = ['ID','TITLE','OPPORTUNITY','CURRENCY_ID','STAGE_ID','CONTACT_ID','COMPANY_ID','ASSIGNED_BY_ID',
+    'UF_CRM_TESIS_ADI','UF_CRM_UNITE_NO','UF_CRM_HAFTA_NO','UF_CRM_ODA_TIPI','UF_CRM_SEHIR','UF_CRM_YILDIZ',
+    'UF_CRM_MULK_TIPI','UF_CRM_SEZON','UF_CRM_NOTLAR',
+    'UF_CRM_SATIS_FIYATI','UF_CRM_PESINAT','UF_CRM_TAKSIT','UF_CRM_FAIZ',
+    'UF_CRM_SOZLESME_NO','UF_CRM_TAPU_TARIHI','UF_CRM_TAPU_DURUM',
+    'UF_CRM_OZ_DENIZ','UF_CRM_OZ_HAVUZ','UF_CRM_OZ_SPA','UF_CRM_OZ_COCUK',
+    'UF_CRM_OZ_RESTORAN','UF_CRM_OZ_OTOPARK','UF_CRM_OZ_WIFI','UF_CRM_OZ_KLIMA'
+  ];
+  BX24.callMethod('crm.deal.get', { id: STATE.dealId, select: selectFields }, function(res) {
     if (res.error()) { showError('Deal yüklenemedi: ' + res.error_description()); return; }
     STATE.deal = res.data();
     if (STATE.deal.CONTACT_ID && parseInt(STATE.deal.CONTACT_ID) > 0) {
@@ -444,7 +452,7 @@ function entityInit(cb) {
 
 function _configOku(cb) {
   if (!_configDealId) { cb(null); return; }
-  BX24.callMethod('crm.deal.get', { id: _configDealId }, function(r) {
+  BX24.callMethod('crm.deal.get', { id: _configDealId, select: ['ID','UF_CRM_NOTLAR'] }, function(r) {
     if (r.error()) { cb(null); return; }
     cb(r.data()['UF_CRM_NOTLAR'] || null);
   });
@@ -458,7 +466,7 @@ function _configYaz(jsonStr, cb) {
     });
   } else {
     BX24.callMethod('crm.deal.add', {
-      fields: Object.assign({ TITLE: CONFIG_DEAL_TITLE }, fields)
+      fields: { TITLE: CONFIG_DEAL_TITLE, 'UF_CRM_NOTLAR': jsonStr }
     }, function(r) {
       if (!r.error()) _configDealId = r.data();
       if (cb) cb(_configDealId);
@@ -559,7 +567,10 @@ function loadCustomFields(d) {
   // Diğer alanlar
   Object.keys(FIELD_MAP).forEach(function(id){
     if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz') return;
-    var v = d[FIELD_MAP[id]]; if(v!=null){var el=document.getElementById(id);if(el)el.value=v;}
+    var v = d[FIELD_MAP[id]];
+    // UF_CRM_NOTLAR içinde config JSON varsa forma yazma
+    if (id === 'field-notlar' && v && v.indexOf('{"tesisler"') === 0) return;
+    if(v!=null){var el=document.getElementById(id);if(el)el.value=v;}
   });
   // Şehir ve yıldız tesisSecildi ile dolacak, ama kayıtlı değer yoksa direkt yaz
   if (d['UF_CRM_SEHIR']) document.getElementById('field-sehir').setAttribute('data-loaded-value', d['UF_CRM_SEHIR']);
