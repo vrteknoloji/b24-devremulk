@@ -448,16 +448,15 @@ function entityInit(cb) {
 function _tesisListesiGetir(cb) {
   BX24.callMethod('crm.product.list', {
     filter: { '>=PRICE': 0 },
-    select: ['ID', 'NAME', 'DESCRIPTION', 'DETAIL_TEXT']
+    select: ['ID', 'NAME', 'DESCRIPTION']
   }, function(r) {
     if (r.error()) { cb([]); return; }
     var tumUrunler = r.data() || [];
-    // Sadece bizim tesislerimizi filtrele (DETAIL_TEXT başlangıcı)
     var tesisler = tumUrunler.filter(function(u) {
-      return u.DETAIL_TEXT && u.DETAIL_TEXT.indexOf('__DEVREMULK__') === 0;
+      return u.DESCRIPTION && u.DESCRIPTION.indexOf('__DEVREMULK__') === 0;
     }).map(function(u) {
       try {
-        var meta = JSON.parse(u.DETAIL_TEXT.replace('__DEVREMULK__', ''));
+        var meta = JSON.parse(u.DESCRIPTION.replace('__DEVREMULK__', ''));
         meta.id = u.ID;
         meta.ad = u.NAME;
         return meta;
@@ -765,7 +764,7 @@ function adminTesisKaydet() {
     // Güncelle
     BX24.callMethod('crm.product.update', {
       id: duzenleId,
-      fields: { NAME: ad, DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta) }
+      fields: { NAME: ad, DESCRIPTION: '__DEVREMULK__' + JSON.stringify(meta) }
     }, function(r) {
       if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
       showToast('✅ ' + ad + ' güncellendi!', 'success');
@@ -775,7 +774,7 @@ function adminTesisKaydet() {
   } else {
     // Yeni ekle
     BX24.callMethod('crm.product.add', {
-      fields: { NAME: ad, PRICE: 0, DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta) }
+      fields: { NAME: ad, PRICE: 0, DESCRIPTION: '__DEVREMULK__' + JSON.stringify(meta) }
     }, function(r) {
       if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
       showToast('✅ ' + ad + ' kaydedildi!', 'success');
