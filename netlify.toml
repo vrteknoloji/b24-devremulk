@@ -5,6 +5,12 @@
 [functions]
   included_files = ["index.html", "install.html", "admin.html"]
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+
 [[redirects]]
   from = "/install.html"
   to = "/.netlify/functions/install"
@@ -18,8 +24,13 @@
   force = true
 
 [[redirects]]
+  from = "/"
+  to = "/.netlify/functions/index"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/admin.html"
   to = "/.netlify/functions/admin"
   status = 200
   force = true
-
