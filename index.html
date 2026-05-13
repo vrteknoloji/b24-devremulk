@@ -151,6 +151,7 @@ textarea{resize:vertical;font-family:inherit}
         <div>
           <h1 class="app-title">Devremülk Yönetimi</h1>
           <p class="deal-name" id="deal-name">—</p>
+          <p style="font-size:10px;color:#94a3b8">v1.5 — 14 May 2026</p>
         </div>
       </div>
       <div class="app-header-right">
@@ -681,17 +682,32 @@ function kaydet() {
 
 function _kaydetYap() {
   var fields={};
-  Object.keys(FIELD_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[FIELD_MAP[id]]=el.value;});
+  Object.keys(FIELD_MAP).forEach(function(id){
+    // yıldız/şehir readonly display field — skip, tesis adından otomatik geliyor
+    if(id==='field-yildiz'||id==='field-sehir') return;
+    var el=document.getElementById(id);
+    if(el) fields[FIELD_MAP[id]]=el.value;
+  });
   Object.keys(CHECKBOX_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[CHECKBOX_MAP[id]]=el.checked?'Y':'N';});
-  // Şehir ve yıldız otomatik dolu ama readonly — yine de kaydet
-  var sehirEl = document.getElementById('field-sehir');
-  var yildizEl = document.getElementById('field-yildiz');
-  if (sehirEl) fields['UF_CRM_SEHIR'] = sehirEl.value;
-  if (yildizEl) fields['UF_CRM_YILDIZ'] = yildizEl.value;
+  // Ödeme planı da kaydet
+  var odeme = STATE.odeme || {};
+  if(odeme.sf) fields['UF_CRM_SATIS_FIYATI']=String(odeme.sf);
+  if(odeme.p!=null) fields['UF_CRM_PESINAT']=String(odeme.p);
+  if(odeme.t!=null) fields['UF_CRM_TAKSIT']=String(odeme.t);
+  if(odeme.f!=null) fields['UF_CRM_FAIZ']=String(odeme.f);
   setSaveStatus('Kaydediliyor...');
   BX24.callMethod('crm.deal.update',{id:STATE.dealId,fields:fields},function(res){
-    if(res.error()){setSaveStatus('');showToast('❌ Hata: '+res.error_description(),'error');}
-    else{setSaveStatus('✅ Kaydedildi');showToast('✅ Başarıyla kaydedildi!','success');setTimeout(function(){setSaveStatus('');},3000);}
+    if(res.error()){
+      setSaveStatus('');
+      showToast('❌ Kayıt hatası: '+res.error_description(),'error');
+      console.error('crm.deal.update error:', res.error_description(), fields);
+    } else {
+      // Kaydedilen değerleri STATE.deal'e de yansıt
+      Object.keys(fields).forEach(function(k){ STATE.deal[k]=fields[k]; });
+      setSaveStatus('✅ Kaydedildi');
+      showToast('✅ Başarıyla kaydedildi!','success');
+      setTimeout(function(){setSaveStatus('');},3000);
+    }
   });
 }
 
