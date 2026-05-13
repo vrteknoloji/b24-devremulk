@@ -375,7 +375,7 @@ BX24.init(function() {
     ? placement.options.ID
     : getUrlParam('DEAL_ID') || getUrlParam('ID');
   if (!STATE.dealId) { showError('Deal ID bulunamadı. Lütfen uygulamayı bir Deal üzerinden açın.'); return; }
-  yukle();
+  entityInit(function() { yukle(); });
 });
 
 function yukle() {
@@ -414,10 +414,54 @@ function renderApp() {
   BX24.fitWindow();
 }
 
+// ====== DEPOLAMA: entity.item ======
+var ENTITY_CODE = 'devremulk_config';
+
+function storageGet(key, cb) {
+  BX24.callMethod('entity.item.get', {
+    ENTITY: ENTITY_CODE, FILTER: { NAME: key }
+  }, function(r) {
+    if (!r.error()) {
+      var items = r.data();
+      cb(items && items.length ? items[0].DETAIL_TEXT : null);
+    } else { cb(null); }
+  });
+}
+
+function storageSet(key, value, cb) {
+  // Önce sil, sonra ekle
+  BX24.callMethod('entity.item.get', {
+    ENTITY: ENTITY_CODE, FILTER: { NAME: key }
+  }, function(r) {
+    var items = !r.error() ? r.data() : [];
+    function doAdd() {
+      BX24.callMethod('entity.item.add', {
+        ENTITY: ENTITY_CODE, NAME: key, DETAIL_TEXT: value
+      }, function() { if (cb) cb(); });
+    }
+    if (items && items.length) {
+      BX24.callMethod('entity.item.update', {
+        ENTITY: ENTITY_CODE, ID: items[0].ID, DETAIL_TEXT: value
+      }, function() { if (cb) cb(); });
+    } else { doAdd(); }
+  });
+}
+
+// entity yoksa oluştur
+function entityInit(cb) {
+  BX24.callMethod('entity.get', { ENTITY: ENTITY_CODE }, function(r) {
+    if (r.error() || !r.data() || !r.data().length) {
+      BX24.callMethod('entity.add', {
+        ENTITY: ENTITY_CODE, NAME: 'Devremülk Config', ACCESS: { AU: 'X' }
+      }, function() { if (cb) cb(); });
+    } else { if (cb) cb(); }
+  });
+}
+
 var TESISLER = [];
 
 function tesisleriYukle() {
-  BX24.appOption.get('tesisler', function(data) {
+  storageGet('tesisler', function(data) {
     TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
     var sel = document.getElementById('field-tesis');
     var mevcutDeger = sel.getAttribute('data-loaded-value') || '';
@@ -622,7 +666,7 @@ function adminModalKapat() {
 }
 function adminGiris() {
   var girilen = document.getElementById('admin-sifre').value;
-  BX24.appOption.get('admin_sifre', function(kayitli) {
+  storageGet('admin_sifre', function(kayitli) {
     var dogru = kayitli || 'admin123';
     if (girilen === dogru) {
       document.getElementById('admin-login').style.display = 'none';
@@ -634,15 +678,14 @@ function adminGiris() {
   });
 }
 function adminTesisleriYukle() {
-  BX24.appOption.get('tesisler', function(data) {
+  storageGet('tesisler', function(data) {
     ADMIN_TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
     adminListeyiRender();
-    // Ana dropdown'u da güncelle
     tesisleriYukle();
   });
 }
 function adminTesisleriKaydet(cb) {
-  BX24.appOption.set('tesisler', JSON.stringify(ADMIN_TESISLER), function() { if(cb) cb(); });
+  storageSet('tesisler', JSON.stringify(ADMIN_TESISLER), cb);
 }
 function adminTesisEkle() {
   var ad = document.getElementById('af-ad').value.trim();
@@ -706,7 +749,7 @@ function adminSifreDegistir() {
   var s2 = document.getElementById('admin-yeni-sifre2').value;
   if (!s1) { showToast('Şifre boş olamaz!', 'error'); return; }
   if (s1 !== s2) { showToast('Şifreler eşleşmiyor!', 'error'); return; }
-  BX24.appOption.set('admin_sifre', s1, function() {
+  storageSet('admin_sifre', s1, function() {
     showToast('✅ Şifre güncellendi!', 'success');
     document.getElementById('admin-yeni-sifre').value='';
     document.getElementById('admin-yeni-sifre2').value='';
