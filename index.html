@@ -433,24 +433,33 @@ function renderApp() {
   BX24.fitWindow();
 }
 
-// ====== DEPOLAMA: BX24.userOption (tesis kataloğu) ======
-// Scope gerektirmez, CRM'de deal/kayıt oluşturmaz, Bitrix24 server'ında saklar.
+// ====== DEPOLAMA: localStorage (basit, güvenilir) ======
+// Tesis listesi tüm kullanıcılarda ortak olsun için BX24.callMethod ile saklanır,
+// ama userOption senkron çalıştığından localStorage kullanıyoruz + Bitrix24 backup.
 
 function entityInit(cb) { if (cb) cb(); }
 
 function _configOku(cb) {
-  BX24.userOption.get('devremulk_tesisler', function(val) {
-    cb(val || null);
+  // Önce localStorage'dan hızlı yükle
+  var local = localStorage.getItem('devremulk_tesisler');
+  if (local) { cb(local); }
+  // Arka planda Bitrix24'ten de senkronize et (app.option.get)
+  BX24.callMethod('app.option.get', { option: 'devremulk_tesisler' }, function(r) {
+    if (!r.error() && r.data()) {
+      localStorage.setItem('devremulk_tesisler', r.data());
+      if (!local) cb(r.data());
+    } else if (!local) { cb(null); }
   });
 }
 
 function _configYaz(jsonStr, cb) {
-  BX24.userOption.set('devremulk_tesisler', jsonStr, function() {
+  localStorage.setItem('devremulk_tesisler', jsonStr);
+  BX24.callMethod('app.option.set', { options: { 'devremulk_tesisler': jsonStr } }, function() {
     if (cb) cb();
   });
 }
 
-// Tesis listesini userOption'dan yükle
+// Tesis listesini yükle
 function _tesisListesiGetir(cb) {
   _configOku(function(raw) {
     if (!raw) { cb([]); return; }
@@ -462,10 +471,19 @@ function _tesisListesiGetir(cb) {
 }
 
 function storageGet(key, cb) {
-  BX24.userOption.get('devremulk_' + key, function(val) { cb(val || null); });
+  var local = localStorage.getItem('devremulk_' + key);
+  if (local) { cb(local); return; }
+  BX24.callMethod('app.option.get', { option: 'devremulk_' + key }, function(r) {
+    var val = (!r.error() && r.data()) ? r.data() : null;
+    if (val) localStorage.setItem('devremulk_' + key, val);
+    cb(val);
+  });
 }
 function storageSet(key, value, cb) {
-  BX24.userOption.set('devremulk_' + key, value, function() { if (cb) cb(); });
+  localStorage.setItem('devremulk_' + key, value);
+  BX24.callMethod('app.option.set', { options: { ['devremulk_' + key]: value } }, function() {
+    if (cb) cb();
+  });
 }
 
 var TESISLER = [];
