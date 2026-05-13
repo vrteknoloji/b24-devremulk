@@ -849,11 +849,10 @@ function aldindiYazdir() {
   document.getElementById('pa-toplam').textContent = formatPara(o.top, cur);
   var html = '';
   var baslangic = (STATE.deal && STATE.deal.DATE_CREATE) ? new Date(STATE.deal.DATE_CREATE) : new Date();
-  var bugun = new Date();
   if (o.t > 0) {
     for (var i = 1; i <= o.t; i++) {
       var d2 = new Date(baslangic.getFullYear(), baslangic.getMonth()+i, 1);
-      var g = d2 <= bugun;
+      var g = odendiMi(i);
       html += '<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(o.ay,cur)+'</td><td>'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</td></tr>';
     }
   } else {
