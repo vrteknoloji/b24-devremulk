@@ -374,22 +374,17 @@ textarea{resize:vertical;font-family:inherit}
             <div class="m-fg"><label>Şehir *</label><input id="af-sehir" placeholder="Bodrum, Antalya..."/></div>
           </div>
           <div class="m-grid3">
-            <div class="m-fg"><label>Yıldız</label><select id="af-yildiz"><option value="">-</option><option value="3">⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="5">⭐⭐⭐⭐⭐</option></select></div>
+            <div class="m-fg"><label>Yıldız</label><select id="af-yildiz"><option value="">-</option><option value="1">1 ⭐</option><option value="2">2 ⭐⭐</option><option value="3">3 ⭐⭐⭐</option><option value="4">4 ⭐⭐⭐⭐</option><option value="5">5 ⭐⭐⭐⭐⭐</option><option value="6">6 ⭐⭐⭐⭐⭐⭐</option><option value="7">7 ⭐⭐⭐⭐⭐⭐⭐</option></select></div>
             <div class="m-fg"><label>Ünite Sayısı</label><input id="af-unite" type="number" placeholder="120"/></div>
             <div class="m-fg"><label>Hafta Sayısı</label><input id="af-hafta" type="number" value="52"/></div>
           </div>
           <div class="m-fg" style="margin-bottom:10px"><label>Oda Tipleri (virgülle)</label><input id="af-oda" placeholder="Studio, 1+1, 2+1, 3+1, Villa"/></div>
           <div class="m-fg" style="margin-bottom:12px">
-            <label>Özellikler</label>
-            <div class="m-cb-row">
-              <label class="m-cb-label"><input type="checkbox" id="aoz-deniz"/> Denize Sıfır</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-havuz"/> Havuz</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-spa"/> SPA</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-cocuk"/> Çocuk Kulübü</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-restoran"/> Restoran</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-otopark"/> Otopark</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-wifi"/> Wi-Fi</label>
-              <label class="m-cb-label"><input type="checkbox" id="aoz-klima"/> Klima</label>
+            <label>Özellikler <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler seçili sayılır)</span></label>
+            <div id="aoz-liste" class="m-cb-row" style="margin-bottom:8px"></div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="aoz-yeni" placeholder="Yeni özellik ekle..." style="flex:1;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"/>
+              <button type="button" onclick="aozEkle()" style="padding:5px 12px;background:#2563eb;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer">+ Ekle</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px">
@@ -910,6 +905,8 @@ function adminModalAc() {
   document.getElementById('admin-sifre-hata').style.display = 'none';
   document.getElementById('admin-login').style.display = 'block';
   document.getElementById('admin-content').style.display = 'none';
+  // Özellik listesini sıfırla
+  AOZ_LISTE = AOZ_VARSAYILAN.map(function(a){return {ad:a,secili:false};});
 }
 function adminModalKapat() {
   document.getElementById('admin-modal').classList.remove('open');
@@ -934,6 +931,55 @@ function adminTesisleriYukle() {
     tesisleriYukle();
   });
 }
+// ---- Dinamik Özellik Listesi ----
+var AOZ_VARSAYILAN = ['Denize Sıfır','Havuz','SPA','Çocuk Kulübü','Restoran','Otopark','Wi-Fi','Klima'];
+var AOZ_LISTE = []; // {ad: string, secili: bool}
+
+function aozRender(mevcut) {
+  // mevcut: eski format {deniz:true,...} veya yeni format {ad:true,...} veya array
+  var seciliSet = {};
+  if (Array.isArray(mevcut)) {
+    mevcut.forEach(function(a){ seciliSet[a] = true; });
+  } else {
+    var eskiMap = {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'};
+    Object.keys(mevcut).forEach(function(k){
+      if(mevcut[k]) seciliSet[eskiMap[k]||k] = true;
+    });
+  }
+  // Listeyi oluştur: varsayılan + kayıtlı özel
+  var tumAdlar = AOZ_VARSAYILAN.slice();
+  Object.keys(seciliSet).forEach(function(a){ if(tumAdlar.indexOf(a)===-1) tumAdlar.push(a); });
+  AOZ_LISTE = tumAdlar.map(function(a){ return {ad:a, secili:!!seciliSet[a]}; });
+  _aozDomGuncelle();
+}
+function _aozDomGuncelle() {
+  var el = document.getElementById('aoz-liste');
+  if (!el) return;
+  el.innerHTML = AOZ_LISTE.map(function(oz, i){
+    return '<label class="m-cb-label" style="position:relative">' +
+      '<input type="checkbox"'+(oz.secili?' checked':'')+' onchange="AOZ_LISTE['+i+'].secili=this.checked"/> '+oz.ad+
+      '<span onclick="aozSil('+i+')" style="margin-left:4px;color:#ef4444;cursor:pointer;font-size:11px">✕</span>'+
+      '</label>';
+  }).join('');
+}
+function aozEkle() {
+  var inp = document.getElementById('aoz-yeni');
+  var ad = inp.value.trim();
+  if (!ad) return;
+  if (AOZ_LISTE.find(function(o){return o.ad===ad;})) { showToast('Bu özellik zaten var!','error'); return; }
+  AOZ_LISTE.push({ad:ad, secili:true});
+  _aozDomGuncelle();
+  inp.value = '';
+}
+function aozSil(i) {
+  AOZ_LISTE.splice(i,1);
+  _aozDomGuncelle();
+}
+function aozOku() {
+  // Seçili olanları array olarak döndür
+  return AOZ_LISTE.filter(function(o){return o.secili;}).map(function(o){return o.ad;});
+}
+
 function _adminTesisleriKaydet(cb) {
   var jsonStr = JSON.stringify({ tesisler: ADMIN_TESISLER });
   _configYaz(jsonStr, function() {
@@ -949,11 +995,7 @@ function _afFormDoldur(t) {
   document.getElementById('af-unite').value = t.uniteSayi || '';
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
   document.getElementById('af-oda').value = (t.odaTipleri || []).join(', ');
-  var oz = t.ozellikler || {};
-  ['deniz','havuz','spa','cocuk','restoran','otopark','wifi','klima'].forEach(function(k) {
-    var el = document.getElementById('aoz-' + k);
-    if (el) el.checked = !!oz[k];
-  });
+  aozRender(t.ozellikler || {});
 }
 function adminFormSifirla() {
   document.getElementById('af-duzenle-id').value = '';
@@ -964,7 +1006,10 @@ function adminFormSifirla() {
   document.getElementById('af-hafta').value='52';
   document.getElementById('af-yildiz').value='';
   document.getElementById('af-oda').value='';
-  ['aoz-deniz','aoz-havuz','aoz-spa','aoz-cocuk','aoz-restoran','aoz-otopark','aoz-wifi','aoz-klima'].forEach(function(id){document.getElementById(id).checked=false;});
+  aozRender({});
+  // Yeni tesis için varsayılan özellikleri göster
+  AOZ_LISTE = AOZ_VARSAYILAN.map(function(a){return {ad:a,secili:false};});
+  _aozDomGuncelle();
   document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
 }
 function adminTesisDuzenle(id) {
@@ -988,16 +1033,7 @@ function adminTesisKaydet() {
     uniteSayi: document.getElementById('af-unite').value,
     haftaSayi: parseInt(document.getElementById('af-hafta').value) || 52,
     odaTipleri: odaTipleri,
-    ozellikler: {
-      deniz: document.getElementById('aoz-deniz').checked,
-      havuz: document.getElementById('aoz-havuz').checked,
-      spa: document.getElementById('aoz-spa').checked,
-      cocuk: document.getElementById('aoz-cocuk').checked,
-      restoran: document.getElementById('aoz-restoran').checked,
-      otopark: document.getElementById('aoz-otopark').checked,
-      wifi: document.getElementById('aoz-wifi').checked,
-      klima: document.getElementById('aoz-klima').checked
-    }
+    ozellikler: aozOku()
   };
   var duzenleId = document.getElementById('af-duzenle-id').value;
   if (duzenleId) {
@@ -1041,10 +1077,11 @@ function adminListeyiRender() {
   liste.innerHTML = ADMIN_TESISLER.map(function(t) {
     var y = t.yildiz ? '⭐'.repeat(parseInt(t.yildiz)) : '';
     var oz = t.ozellikler || {};
-    var ozList = ['deniz','havuz','spa','cocuk','restoran','otopark','wifi','klima']
-      .filter(function(k){return oz[k];})
-      .map(function(k){return {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'}[k];})
-      .join(', ');
+    var ozList = Array.isArray(oz)
+      ? oz.join(', ')
+      : Object.keys(oz).filter(function(k){return oz[k];}).map(function(k){
+          return {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'}[k]||k;
+        }).join(', ');
     return '<div class="tesis-item">'+
       '<div style="flex:1">'+
         '<div class="ti-name">'+t.ad+' '+y+'</div>'+
