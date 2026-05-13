@@ -814,9 +814,9 @@ function _kaydetYap() {
       fields['UF_CRM_HAFTA_NO']=seciliH;
       return;
     }
+    if(id==='field-oda-tipi'){
       var wrap=document.getElementById('field-oda-tipi');
       var seciliTexts=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}):[]; 
-      // enum IDs varsa dizi olarak gönder, yoksa metin olarak (eski/string alan uyumu)
       if(ODA_ENUM.fieldId){
         var seciliIds=seciliTexts.map(function(v){return ODA_ENUM.valToId[v];}).filter(Boolean);
         fields['UF_CRM_ODA_TIPI']=seciliIds.length?seciliIds:seciliTexts;
