@@ -328,6 +328,35 @@ function loadCustomFields(d) {
 }
 
 function kaydet() {
+  var tesis = (document.getElementById('field-tesis')||{}).value||'';
+  var hafta  = (document.getElementById('field-hafta')||{}).value||'';
+
+  // Çakışma kontrolü: aynı tesis + aynı hafta başka deal'de var mı?
+  if (tesis && hafta) {
+    setSaveStatus('Kontrol ediliyor...');
+    BX24.callMethod('crm.deal.list', {
+      filter: { 'UF_CRM_TESIS_ADI': tesis, 'UF_CRM_HAFTA_NO': hafta },
+      select: ['ID','TITLE','UF_CRM_TESIS_ADI','UF_CRM_HAFTA_NO']
+    }, function(r) {
+      if (!r.error()) {
+        var liste = r.data();
+        // Kendisi hariç başka deal var mı?
+        var cakisan = liste.filter(function(d){ return String(d.ID) !== String(STATE.dealId); });
+        if (cakisan.length > 0) {
+          setSaveStatus('');
+          showToast('⛔ ' + tesis + ' — Hafta ' + hafta + ' zaten "' + cakisan[0].TITLE + '" deal\'ine rezerve edilmiş!', 'error');
+          return;
+        }
+      }
+      // Çakışma yok, kaydet
+      _kaydetYap();
+    });
+  } else {
+    _kaydetYap();
+  }
+}
+
+function _kaydetYap() {
   var fields={};
   Object.keys(FIELD_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[FIELD_MAP[id]]=el.value;});
   Object.keys(CHECKBOX_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[CHECKBOX_MAP[id]]=el.checked?'Y':'N';});
