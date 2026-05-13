@@ -107,6 +107,8 @@ textarea{resize:vertical;font-family:inherit}
 .hafta-wrap .hafta-cb:hover{background:#eff6ff;border-color:#93c5fd}
 .hafta-wrap .hafta-cb:has(input:checked){background:#dbeafe;border-color:var(--primary);color:var(--primary)}
 .hafta-wrap .hafta-cb input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.hafta-cb.dolu{background:#fee2e2;border-color:#fca5a5;color:#dc2626;cursor:not-allowed;opacity:.85}
+.hafta-cb.dolu input{pointer-events:none}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -656,16 +658,39 @@ function tesisSecildi(ad) {
     var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
     return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+'/> '+o+'</label>';
   }).join(''); }
-  // Hafta seçenekleri — çoktan seçmeli checkbox grid
+  // Hafta seçenekleri — önce loading göster, sonra dolu haftaları çekip renkli render et
   var haftaWrap = document.getElementById('field-hafta');
   var mevcutHaftalar = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
   var toplamHafta = tesis.haftaSayi || 52;
-  var haftaHtml = '';
-  for (var i = 1; i <= toplamHafta; i++) {
-    var chk = mevcutHaftalar.indexOf(String(i)) >= 0 ? ' checked' : '';
-    haftaHtml += '<label class="hafta-cb"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
-  }
-  haftaWrap.innerHTML = haftaHtml;
+  haftaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Rezervasyonlar kontrol ediliyor...</span>';
+  BX24.callMethod('crm.deal.list', {
+    filter: { 'UF_CRM_TESIS_ADI': ad },
+    select: ['ID','TITLE','UF_CRM_HAFTA_NO']
+  }, function(r) {
+    var doluHaftalar = {}; // hafta no -> deal title
+    if (!r.error()) {
+      r.data().forEach(function(d) {
+        if (String(d.ID) === String(STATE.dealId)) return; // kendisi
+        var hafNo = d['UF_CRM_HAFTA_NO'] || '';
+        String(hafNo).split(',').forEach(function(h){
+          h = h.trim();
+          if (h) doluHaftalar[h] = d.TITLE || ('Deal #'+d.ID);
+        });
+      });
+    }
+    var haftaHtml = '';
+    for (var i = 1; i <= toplamHafta; i++) {
+      var si = String(i);
+      var dolu = !!doluHaftalar[si];
+      var chk = mevcutHaftalar.indexOf(si) >= 0 ? ' checked' : '';
+      if (dolu) {
+        haftaHtml += '<label class="hafta-cb dolu" title="⛔ '+doluHaftalar[si]+'"><input type="checkbox" value="'+i+'" disabled/> '+i+'</label>';
+      } else {
+        haftaHtml += '<label class="hafta-cb"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
+      }
+    }
+    haftaWrap.innerHTML = haftaHtml;
+  });
 }
 
 var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
