@@ -97,6 +97,11 @@ textarea{resize:vertical;font-family:inherit}
 .btn-sm{padding:4px 10px;font-size:12px}
 .admin-btn{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .admin-btn:hover{background:#e2e8f0}
+.oda-tipi-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:5px 0;min-height:34px}
+.oda-tipi-wrap .oda-cb{display:flex;align-items:center;gap:4px;padding:4px 11px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:#f8fafc;transition:all .1s;user-select:none}
+.oda-tipi-wrap .oda-cb:hover{background:#eff6ff;border-color:#93c5fd}
+.oda-tipi-wrap .oda-cb input{width:13px;height:13px;accent-color:var(--primary);pointer-events:none}
+.oda-tipi-wrap.checked-style .oda-cb:has(input:checked){background:#dbeafe;border-color:var(--primary);color:var(--primary);font-weight:600}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -189,9 +194,7 @@ textarea{resize:vertical;font-family:inherit}
           </div>
           <div class="field-group">
             <label>Oda Tipi</label>
-            <select id="field-oda-tipi">
-              <option value="">Tesis seçin...</option>
-            </select>
+            <div id="field-oda-tipi" class="oda-tipi-wrap checked-style"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
           </div>
         </div>
       </div>
@@ -371,7 +374,14 @@ textarea{resize:vertical;font-family:inherit}
             <div class="m-fg"><label>Ünite Sayısı</label><input id="af-unite" type="number" placeholder="120"/></div>
             <div class="m-fg"><label>Hafta Sayısı</label><input id="af-hafta" type="number" value="52"/></div>
           </div>
-          <div class="m-fg" style="margin-bottom:10px"><label>Oda Tipleri (virgülle)</label><input id="af-oda" placeholder="Studio, 1+1, 2+1, 3+1, Villa"/></div>
+          <div class="m-fg" style="margin-bottom:10px">
+            <label>Oda Tipleri <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler bu tesis için seçili)</span></label>
+            <div id="af-oda-liste" style="display:flex;flex-wrap:wrap;gap:6px;padding:7px 8px;border:1px solid #e2e8f0;border-radius:5px;min-height:38px;background:#fff;margin-bottom:6px"></div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="af-oda-yeni" placeholder="Yeni tip ekle (ör: 4+1)" style="flex:1;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"/>
+              <button type="button" onclick="afOdaEkle()" style="padding:5px 12px;background:#2563eb;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer">+ Ekle</button>
+            </div>
+          </div>
           <div class="m-fg" style="margin-bottom:12px">
             <label>Özellikler <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler seçili sayılır)</span></label>
             <div id="aoz-liste" class="m-cb-row" style="margin-bottom:8px"></div>
@@ -625,11 +635,15 @@ function tesisSecildi(ad) {
   document.getElementById('field-yildiz').value = tesis.yildiz ? tesis.yildiz + ' ⭐' : '';
   // Tesis özelliklerini dinamik render et
   ozelliklerRender(tesis.ozellikler || [], STATE.seciliOzellikler || []);
-  // Oda tipleri
-  var odaSel = document.getElementById('field-oda-tipi');
-  var mevcutOda = odaSel.getAttribute('data-loaded-value') || '';
-  odaSel.innerHTML = '<option value="">Seçiniz...</option>' +
-    tesis.odaTipleri.map(function(o){ return '<option value="'+o+'"'+(o===mevcutOda?' selected':'')+'>'+o+'</option>'; }).join('');
+  // Oda tipleri — çoktan seçmeli checkbox
+  var odaWrap = document.getElementById('field-oda-tipi');
+  var mevcutOdalar = (odaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var odaTipleri = tesis.odaTipleri || [];
+  if (!odaTipleri.length) { odaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Oda tipi tanımlanmamış</span>'; }
+  else { odaWrap.innerHTML = odaTipleri.map(function(o){
+    var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
+    return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+'/> '+o+'</label>';
+  }).join(''); }
   // Hafta seçenekleri
   var haftaSel = document.getElementById('field-hafta');
   var mevcutHafta = haftaSel.getAttribute('data-loaded-value') || '';
@@ -669,7 +683,7 @@ function loadCustomFields(d) {
   tesisleriYukle();
   // Diğer alanlar
   Object.keys(FIELD_MAP).forEach(function(id){
-    if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz') return;
+    if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz' || id === 'field-mulk-tipi' || id === 'field-sezon' || id === 'field-taksit' || id === 'field-tapu-durum') return;
     var v = d[FIELD_MAP[id]];
     // UF_CRM_NOTLAR içinde config JSON varsa forma yazma
     if (id === 'field-notlar' && v && v.indexOf('{"tesisler"') === 0) return;
@@ -768,6 +782,12 @@ function _kaydetYap() {
   Object.keys(FIELD_MAP).forEach(function(id){
     // yıldız/şehir readonly display field — skip, tesis adından otomatik geliyor
     if(id==='field-yildiz'||id==='field-sehir') return;
+    if(id==='field-oda-tipi'){
+      var wrap=document.getElementById('field-oda-tipi');
+      var secili=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}).join(', '):'';
+      fields['UF_CRM_ODA_TIPI']=secili;
+      return;
+    }
     var el=document.getElementById(id);
     if(el) fields[FIELD_MAP[id]]=el.value;
   });
@@ -964,9 +984,46 @@ function adminTesisleriYukle() {
       adminListeyiRender();
       tesisleriYukle();
       // Form varsayılan görünümü
+      afOdaRender([]);
       aozRender({});
     });
   });
+}
+// ---- Oda Tipi Tag UI (Admin Form) ----
+function afOdaTumunuTopla() {
+  var bilinen = ['Studio','1+1','2+1','3+1','Villa','4+1','Bungalov','Dublex'];
+  (ADMIN_TESISLER || []).forEach(function(t){
+    (t.odaTipleri || []).forEach(function(o){ if(bilinen.indexOf(o)<0) bilinen.push(o); });
+  });
+  return bilinen;
+}
+function afOdaRender(secili) {
+  var liste = document.getElementById('af-oda-liste');
+  if (!liste) return;
+  var tum = afOdaTumunuTopla();
+  // secili içinde olup tum içinde olmayan oda tipleri de ekle
+  (secili || []).forEach(function(o){ if(tum.indexOf(o)<0) tum.push(o); });
+  liste.innerHTML = tum.map(function(o){
+    var chk = (secili||[]).indexOf(o)>=0 ? ' checked' : '';
+    return '<label style="display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid #e2e8f0;border-radius:14px;font-size:12px;cursor:pointer;background:#f8fafc;margin-bottom:2px"><input type="checkbox" value="'+o+'"'+chk+' style="width:12px;height:12px;accent-color:#2563eb"/> '+o+'</label>';
+  }).join('');
+}
+function afOdaEkle() {
+  var yeni = document.getElementById('af-oda-yeni').value.trim();
+  if (!yeni) return;
+  var liste = document.getElementById('af-oda-liste');
+  var existing = liste.querySelector('input[value="'+CSS.escape(yeni)+'"]');
+  if (existing) { existing.checked = true; document.getElementById('af-oda-yeni').value=''; return; }
+  var label = document.createElement('label');
+  label.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid #93c5fd;border-radius:14px;font-size:12px;cursor:pointer;background:#dbeafe;margin-bottom:2px';
+  label.innerHTML = '<input type="checkbox" value="'+yeni+'" checked style="width:12px;height:12px;accent-color:#2563eb"/> '+yeni;
+  liste.appendChild(label);
+  document.getElementById('af-oda-yeni').value = '';
+}
+function afOdaOku() {
+  var liste = document.getElementById('af-oda-liste');
+  if (!liste) return [];
+  return Array.prototype.slice.call(liste.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;});
 }
 // ---- Dinamik Özellik Listesi ----
 var AOZ_VARSAYILAN = ['Denize Sıfır','Havuz','SPA','Çocuk Kulübü','Restoran','Otopark','Wi-Fi','Klima'];
@@ -1057,7 +1114,7 @@ function _afFormDoldur(t) {
   document.getElementById('af-yildiz').value = t.yildiz || '';
   document.getElementById('af-unite').value = t.uniteSayi || '';
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
-  document.getElementById('af-oda').value = (t.odaTipleri || []).join(', ');
+  afOdaRender(t.odaTipleri || []);
   aozRender(t.ozellikler || {});
 }
 function adminFormSifirla() {
@@ -1068,7 +1125,7 @@ function adminFormSifirla() {
   ['af-ad','af-sehir','af-unite'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('af-hafta').value='52';
   document.getElementById('af-yildiz').value='';
-  document.getElementById('af-oda').value='';
+  afOdaRender([]);
   aozRender({});
   document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
 }
@@ -1085,7 +1142,7 @@ function adminTesisKaydet() {
   var ad = document.getElementById('af-ad').value.trim();
   var sehir = document.getElementById('af-sehir').value.trim();
   if (!ad || !sehir) { showToast('Tesis adı ve şehir zorunlu!', 'error'); return; }
-  var odaTipleri = document.getElementById('af-oda').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var odaTipleri = afOdaOku();
   if (!odaTipleri.length) odaTipleri = ['Studio','1+1','2+1','3+1','Villa'];
   var meta = {
     sehir: sehir,
