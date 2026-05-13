@@ -74,6 +74,53 @@ textarea{resize:vertical;font-family:inherit}
 .toast.error{background:var(--danger)}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .empty-state{color:var(--text-muted);font-size:13px;text-align:center;padding:24px 0}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:92%;max-width:660px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff;z-index:1}
+.modal-header h2{font-size:15px;color:#1e293b;margin:0}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#64748b}
+.modal-body{padding:18px}
+.m-card{background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:12px;border:1px solid #e2e8f0}
+.m-card h3{font-size:11px;font-weight:700;color:#475569;margin-bottom:10px;text-transform:uppercase}
+.m-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.m-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.m-fg{display:flex;flex-direction:column;gap:3px}
+.m-fg label{font-size:11px;color:#64748b;font-weight:600}
+.m-fg input,.m-fg select{border:1px solid #e2e8f0;border-radius:5px;padding:6px 8px;font-size:13px;width:100%}
+.m-cb-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.m-cb-label{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer}
+.tesis-item{display:flex;align-items:center;gap:8px;padding:9px 11px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:5px}
+.tesis-item .ti-name{flex:1;font-weight:600;font-size:13px}
+.tesis-item .ti-meta{font-size:12px;color:#64748b;flex:2}
+.btn-danger{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+.btn-sm{padding:4px 10px;font-size:12px}
+.admin-btn{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.admin-btn:hover{background:#e2e8f0}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff;z-index:1}
+.modal-header h2{font-size:16px;color:#1e293b;margin:0}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;line-height:1}
+.modal-body{padding:20px}
+.modal .card{background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:12px;border:1px solid #e2e8f0}
+.modal .card h3{font-size:12px;font-weight:700;color:#475569;margin-bottom:12px;text-transform:uppercase}
+.modal .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.modal .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.modal .field-group{display:flex;flex-direction:column;gap:3px}
+.modal .field-group label{font-size:11px;color:#64748b;font-weight:600}
+.modal input,.modal select,.modal textarea{border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;font-size:13px;width:100%}
+.modal .checkbox-row{display:flex;flex-wrap:wrap;gap:8px}
+.modal .checkbox-label{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer}
+.tesis-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:6px}
+.tesis-item .ti-name{flex:1;font-weight:600;font-size:13px}
+.tesis-item .ti-meta{font-size:12px;color:#64748b;flex:2}
+.btn-danger{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+.btn-sm{padding:4px 10px;font-size:12px}
+.admin-btn{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.admin-btn:hover{background:#e2e8f0}
+.sifre-section{display:flex;gap:8px;align-items:flex-end}
   </style>
 </head>
 <body>
@@ -92,6 +139,7 @@ textarea{resize:vertical;font-family:inherit}
         </div>
       </div>
       <div class="app-header-right">
+        <button class="admin-btn" onclick="adminModalAc()">⚙️ Yönetici</button>
         <span class="badge" id="status-badge">—</span>
       </div>
     </div>
@@ -245,6 +293,66 @@ textarea{resize:vertical;font-family:inherit}
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
+
+<!-- YÖNETİCİ PANELİ MODAL -->
+<div class="modal-overlay" id="admin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚙️ Yönetici Paneli</h2>
+      <button class="modal-close" onclick="adminModalKapat()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="admin-login" style="text-align:center;padding:20px 0">
+        <div style="font-size:40px;margin-bottom:10px">🔑</div>
+        <p style="color:#64748b;font-size:13px;margin-bottom:14px">Yönetici şifresini girin</p>
+        <input type="password" id="admin-sifre" placeholder="Şifre" onkeydown="if(event.key==='Enter')adminGiris()" style="max-width:220px;text-align:center;letter-spacing:2px;border:1px solid #e2e8f0;border-radius:7px;padding:8px 12px;font-size:14px;display:block;margin:0 auto 12px"/>
+        <button class="btn btn-primary" onclick="adminGiris()">Giriş Yap</button>
+        <div id="admin-sifre-hata" style="color:#dc2626;font-size:12px;margin-top:8px;display:none">❌ Yanlış şifre!</div>
+      </div>
+      <div id="admin-content" style="display:none">
+        <div class="m-card">
+          <h3>➕ Yeni Tesis Ekle</h3>
+          <div class="m-grid2">
+            <div class="m-fg"><label>Tesis Adı *</label><input id="af-ad" placeholder="Sunny Beach Resort"/></div>
+            <div class="m-fg"><label>Şehir *</label><input id="af-sehir" placeholder="Bodrum, Antalya..."/></div>
+          </div>
+          <div class="m-grid3">
+            <div class="m-fg"><label>Yıldız</label><select id="af-yildiz"><option value="">-</option><option value="3">⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="5">⭐⭐⭐⭐⭐</option></select></div>
+            <div class="m-fg"><label>Ünite Sayısı</label><input id="af-unite" type="number" placeholder="120"/></div>
+            <div class="m-fg"><label>Hafta Sayısı</label><input id="af-hafta" type="number" value="52"/></div>
+          </div>
+          <div class="m-fg" style="margin-bottom:10px"><label>Oda Tipleri (virgülle)</label><input id="af-oda" placeholder="Studio, 1+1, 2+1, 3+1, Villa"/></div>
+          <div class="m-fg" style="margin-bottom:12px">
+            <label>Özellikler</label>
+            <div class="m-cb-row">
+              <label class="m-cb-label"><input type="checkbox" id="aoz-deniz"/> 🌊 Denize Sıfır</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-havuz"/> 🏊 Havuz</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-spa"/> 💆 SPA</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-cocuk"/> 👶 Çocuk Kulübü</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-restoran"/> 🍽️ Restoran</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-otopark"/> 🅿️ Otopark</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-wifi"/> 📶 Wi-Fi</label>
+              <label class="m-cb-label"><input type="checkbox" id="aoz-klima"/> ❄️ Klima</label>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="adminTesisEkle()">💾 Tesis Kaydet</button>
+        </div>
+        <div class="m-card">
+          <h3>🏨 Kayıtlı Tesisler <span id="admin-tesis-sayi" style="font-weight:400;color:#94a3b8"></span></h3>
+          <div id="admin-tesis-liste"><div style="color:#94a3b8;font-size:13px;text-align:center;padding:12px">Henüz tesis eklenmedi</div></div>
+        </div>
+        <div class="m-card">
+          <h3>🔐 Şifre Değiştir</h3>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div class="m-fg" style="flex:1"><label>Yeni Şifre</label><input type="password" id="admin-yeni-sifre"/></div>
+            <div class="m-fg" style="flex:1"><label>Tekrar</label><input type="password" id="admin-yeni-sifre2"/></div>
+            <button class="btn btn-secondary btn-sm" onclick="adminSifreDegistir()">Değiştir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 var STATE = { dealId: null, deal: null, contact: null };
@@ -497,6 +605,112 @@ function showToast(m,t){
 function showError(m){
   gizle('loading');
   document.getElementById('app').innerHTML='<div style="padding:32px;text-align:center;color:#dc2626"><p style="font-size:28px;margin-bottom:12px">⚠️</p><p style="font-weight:600">'+m+'</p></div>';
+}
+
+// ========== YÖNETİCİ PANELİ ==========
+var ADMIN_TESISLER = [];
+
+function adminModalAc() {
+  document.getElementById('admin-modal').classList.add('open');
+  document.getElementById('admin-sifre').value = '';
+  document.getElementById('admin-sifre-hata').style.display = 'none';
+  document.getElementById('admin-login').style.display = 'block';
+  document.getElementById('admin-content').style.display = 'none';
+}
+function adminModalKapat() {
+  document.getElementById('admin-modal').classList.remove('open');
+}
+function adminGiris() {
+  var girilen = document.getElementById('admin-sifre').value;
+  BX24.appOption.get('admin_sifre', function(kayitli) {
+    var dogru = kayitli || 'admin123';
+    if (girilen === dogru) {
+      document.getElementById('admin-login').style.display = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      adminTesisleriYukle();
+    } else {
+      document.getElementById('admin-sifre-hata').style.display = 'block';
+    }
+  });
+}
+function adminTesisleriYukle() {
+  BX24.appOption.get('tesisler', function(data) {
+    ADMIN_TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
+    adminListeyiRender();
+    // Ana dropdown'u da güncelle
+    tesisleriYukle();
+  });
+}
+function adminTesisleriKaydet(cb) {
+  BX24.appOption.set('tesisler', JSON.stringify(ADMIN_TESISLER), function() { if(cb) cb(); });
+}
+function adminTesisEkle() {
+  var ad = document.getElementById('af-ad').value.trim();
+  var sehir = document.getElementById('af-sehir').value.trim();
+  if (!ad || !sehir) { showToast('Tesis adı ve şehir zorunlu!', 'error'); return; }
+  var odaTipleri = document.getElementById('af-oda').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if (!odaTipleri.length) odaTipleri = ['Studio','1+1','2+1','3+1','Villa'];
+  ADMIN_TESISLER.push({
+    id: Date.now(), ad: ad, sehir: sehir,
+    yildiz: document.getElementById('af-yildiz').value,
+    uniteSayi: document.getElementById('af-unite').value,
+    haftaSayi: parseInt(document.getElementById('af-hafta').value) || 52,
+    odaTipleri: odaTipleri,
+    ozellikler: {
+      deniz: document.getElementById('aoz-deniz').checked,
+      havuz: document.getElementById('aoz-havuz').checked,
+      spa: document.getElementById('aoz-spa').checked,
+      cocuk: document.getElementById('aoz-cocuk').checked,
+      restoran: document.getElementById('aoz-restoran').checked,
+      otopark: document.getElementById('aoz-otopark').checked,
+      wifi: document.getElementById('aoz-wifi').checked,
+      klima: document.getElementById('aoz-klima').checked
+    }
+  });
+  adminTesisleriKaydet(function() {
+    showToast('✅ ' + ad + ' kaydedildi!', 'success');
+    adminListeyiRender();
+    tesisleriYukle();
+    ['af-ad','af-sehir','af-unite'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('af-hafta').value='52';
+    document.getElementById('af-yildiz').value='';
+    document.getElementById('af-oda').value='';
+    ['aoz-deniz','aoz-havuz','aoz-spa','aoz-cocuk','aoz-restoran','aoz-otopark','aoz-wifi','aoz-klima'].forEach(function(id){document.getElementById(id).checked=false;});
+  });
+}
+function adminTesisSil(id) {
+  var t = ADMIN_TESISLER.find(function(x){return x.id===id;});
+  if (!confirm('"' + t.ad + '" silinsin mi?')) return;
+  ADMIN_TESISLER = ADMIN_TESISLER.filter(function(x){return x.id!==id;});
+  adminTesisleriKaydet(function() {
+    showToast('🗑️ Silindi', 'error');
+    adminListeyiRender();
+    tesisleriYukle();
+  });
+}
+function adminListeyiRender() {
+  var liste = document.getElementById('admin-tesis-liste');
+  var sayi = document.getElementById('admin-tesis-sayi');
+  sayi.textContent = '(' + ADMIN_TESISLER.length + ')';
+  if (!ADMIN_TESISLER.length) {
+    liste.innerHTML = '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:12px">Henüz tesis eklenmedi</div>';
+    return;
+  }
+  liste.innerHTML = ADMIN_TESISLER.map(function(t) {
+    var y = t.yildiz ? '⭐'.repeat(parseInt(t.yildiz)) : '';
+    return '<div class="tesis-item"><span class="ti-name">'+t.ad+' '+y+'</span><span class="ti-meta">'+t.sehir+' · '+t.odaTipleri.join(', ')+'</span><button class="btn btn-danger btn-sm" onclick="adminTesisSil('+t.id+')">Sil</button></div>';
+  }).join('');
+}
+function adminSifreDegistir() {
+  var s1 = document.getElementById('admin-yeni-sifre').value;
+  var s2 = document.getElementById('admin-yeni-sifre2').value;
+  if (!s1) { showToast('Şifre boş olamaz!', 'error'); return; }
+  if (s1 !== s2) { showToast('Şifreler eşleşmiyor!', 'error'); return; }
+  BX24.appOption.set('admin_sifre', s1, function() {
+    showToast('✅ Şifre güncellendi!', 'success');
+    document.getElementById('admin-yeni-sifre').value='';
+    document.getElementById('admin-yeni-sifre2').value='';
+  });
 }
 </script>
 </body>
