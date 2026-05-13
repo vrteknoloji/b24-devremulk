@@ -437,6 +437,17 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
 BX24.init(function() {
   BX24.fitWindow();
   var placement = BX24.placement.info();
+
+  // Eğer CRM_DEAL_DETAIL_TAB değilse install sayfasına yönlendir
+  if (!placement || !placement.placement || placement.placement !== 'CRM_DEAL_DETAIL_TAB') {
+    // Deal ID URL'de de yoksa kurulum sayfası
+    var urlId = getUrlParam('DEAL_ID') || getUrlParam('ID');
+    if (!urlId) {
+      window.location.href = '/install.html';
+      return;
+    }
+  }
+
   STATE.dealId = (placement && placement.options && placement.options.ID)
     ? placement.options.ID
     : getUrlParam('DEAL_ID') || getUrlParam('ID');
