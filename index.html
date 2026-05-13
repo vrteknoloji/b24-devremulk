@@ -278,7 +278,7 @@ textarea{resize:vertical;font-family:inherit}
         <h3 class="card-title">📅 Ödeme Takvimi</h3>
         <div id="odeme-takvim-container"><p class="empty-state">Ödeme planını hesapladıktan sonra takvim oluşturulacak.</p></div>
         <div id="aldindi-btn-wrap" style="margin-top:10px;display:none">
-          <button class="btn btn-secondary" onclick="aldindiYazdir()">🖨️ Ödeme Aldındısı Yazdır</button>
+          <button class="btn btn-primary" onclick="aldindiYazdir()">🖨️ Ödeme Alındısı Yazdır</button>
         </div>
       </div>
     </div>
@@ -481,6 +481,11 @@ function renderApp() {
   var stage = d.STAGE_ID || '';
   badge.textContent = stage;
   badge.className = (stage.indexOf('WON')>-1) ? 'badge success' : (stage.indexOf('LOSE')>-1) ? 'badge danger' : 'badge';
+  // Ödendi durumlarını app.option'dan senkronize et
+  var optKey='devremulk_odeme_'+STATE.dealId;
+  BX24.callMethod('app.option.get',{option:optKey},function(r){
+    if(!r.error()&&r.data()){localStorage.setItem('odeme_'+STATE.dealId,r.data());}
+  });
   loadCustomFields(d);
   belgeleriYukle();
   goster('main-panel');
@@ -695,19 +700,40 @@ function hesaplaOdeme(silent){
   document.getElementById('sonuc-toplam').textContent=formatPara(top,cur);
   goster('odeme-sonuc');
   var con=document.getElementById('odeme-takvim-container');
-  if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';document.getElementById('aldindi-btn-wrap').style.display='none';return;}
+  if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';document.getElementById('aldindi-btn-wrap').style.display='';return;}
   // Başlangıç tarihi: deal yaratılma tarihi veya bugün
   var baslangic = (STATE.deal && STATE.deal.DATE_CREATE) ? new Date(STATE.deal.DATE_CREATE) : new Date();
-  var html='<div style="max-height:260px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th></tr></thead><tbody>';
-  var bugun=new Date();
+  var html='<div style="max-height:300px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th><th></th></tr></thead><tbody>';
   for(var i=1;i<=t;i++){
     var d2=new Date(baslangic.getFullYear(),baslangic.getMonth()+i,1);
-    var g=d2<=bugun;
-    html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,cur)+'</td><td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:'+(g?'#dcfce7':'#fef3c7')+';color:'+(g?'#16a34a':'#d97706')+';font-weight:600">'+(g?'✅ Ödendi':'⏳ Bekliyor')+'</span></td></tr>';
+    var odendi=odendiMi(i);
+    var durum=odendi
+      ?'<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:600">✅ Ödendi</span>'
+      :'<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#d97706;font-weight:600">⏳ Bekliyor</span>';
+    var btn=odendi
+      ?'<button onclick="odendiToggle('+i+')" style="font-size:11px;padding:2px 8px;border:1px solid #ef4444;border-radius:6px;background:#fff;color:#ef4444;cursor:pointer">↩ İptal</button>'
+      :'<button onclick="odendiToggle('+i+')" style="font-size:11px;padding:2px 8px;border:1px solid #16a34a;border-radius:6px;background:#16a34a;color:#fff;cursor:pointer">✓ Ödendi</button>';
+    html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,cur)+'</td><td>'+durum+'</td><td>'+btn+'</td></tr>';
   }
   con.innerHTML=html+'</tbody></table></div>';
   document.getElementById('aldindi-btn-wrap').style.display='';
   BX24.fitWindow();
+}
+
+function odendiMi(i){
+  var key='odeme_'+STATE.dealId;
+  var arr=JSON.parse(localStorage.getItem(key)||'[]');
+  return arr.indexOf(i)>-1;
+}
+function odendiToggle(i){
+  var key='odeme_'+STATE.dealId;
+  var arr=JSON.parse(localStorage.getItem(key)||'[]');
+  var idx=arr.indexOf(i);
+  if(idx>-1){arr.splice(idx,1);}else{arr.push(i);}
+  localStorage.setItem(key,JSON.stringify(arr));
+  var optKey='devremulk_odeme_'+STATE.dealId;
+  BX24.callMethod('app.option.set',{options:{[optKey]:JSON.stringify(arr)}},function(){});
+  hesaplaOdeme(true);
 }
 
 function aldindiYazdir() {
@@ -767,8 +793,9 @@ function gizle(id){var el=document.getElementById(id);if(el)el.classList.add('hi
 function setSaveStatus(m){var el=document.getElementById('save-status');if(el)el.textContent=m;}
 function formatPara(n,c){
   if(!n&&n!==0)return '—';
-  try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency:c||'TRY',minimumFractionDigits:0,maximumFractionDigits:0}).format(parseFloat(n));}
-  catch(e){return parseFloat(n).toFixed(0)+' ₺';}
+  var cur=c||'TRY';
+  try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency:cur,minimumFractionDigits:0,maximumFractionDigits:0}).format(parseFloat(n));}
+  catch(e){return parseFloat(n).toFixed(0)+' '+cur;}
 }
 function getUrlParam(n){return new URLSearchParams(window.location.search).get(n);}
 var _tt=null;
