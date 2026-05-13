@@ -723,6 +723,13 @@ function adminTesisleriYukle() {
     tesisleriYukle();
   });
 }
+function _adminTesisleriKaydet(cb) {
+  var jsonStr = JSON.stringify({ tesisler: ADMIN_TESISLER });
+  _configYaz(jsonStr, function() {
+    tesisleriYukle();
+    if (cb) cb();
+  });
+}
 function _afFormDoldur(t) {
   document.getElementById('af-duzenle-id').value = t.id;
   document.getElementById('af-ad').value = t.ad || '';
