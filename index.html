@@ -630,6 +630,23 @@ function loadCustomFields(d) {
   // Ödeme planı verileri varsa otomatik hesapla (takvimi yenile)
   if (d['UF_CRM_SATIS_FIYATI'] && parseFloat(d['UF_CRM_SATIS_FIYATI']) > 0) {
     setTimeout(function(){ hesaplaOdeme(true); }, 400);
+  } else if (STATE.dealId) {
+    // Bitrix24'te kayıtlı değilse localStorage'dan dene
+    var planStr = localStorage.getItem('odeme_plan_'+STATE.dealId);
+    if (planStr) {
+      try {
+        var plan = JSON.parse(planStr);
+        var sfEl=document.getElementById('field-satis-fiyati');
+        var pEl=document.getElementById('field-pesinat');
+        var tEl=document.getElementById('field-taksit');
+        var fEl=document.getElementById('field-faiz');
+        if(sfEl&&plan.sf)sfEl.value=plan.sf;
+        if(pEl&&plan.p)pEl.value=plan.p;
+        if(tEl&&plan.t)tEl.value=plan.t;
+        if(fEl&&plan.f)fEl.value=plan.f;
+        setTimeout(function(){ hesaplaOdeme(true); }, 400);
+      } catch(e){}
+    }
   }
 }
 
@@ -694,6 +711,10 @@ function hesaplaOdeme(silent){
     top=p+(ay*t);
   }
   STATE.odeme = { sf:sf, p:p, t:t, f:f, k:k, ay:ay, top:top, cur:cur };
+  // Ödeme planı girişlerini localStorage'a otomatik kaydet
+  if(STATE.dealId){
+    localStorage.setItem('odeme_plan_'+STATE.dealId, JSON.stringify({sf:sf,p:p,t:t,f:f}));
+  }
   document.getElementById('sonuc-pesinat').textContent=formatPara(p,cur);
   document.getElementById('sonuc-kalan').textContent=formatPara(k,cur);
   document.getElementById('sonuc-taksit').textContent=t>0?formatPara(ay,cur):'Peşin';
