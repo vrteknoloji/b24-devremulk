@@ -349,6 +349,12 @@ textarea{resize:vertical;font-family:inherit}
             <button class="btn btn-secondary btn-sm" onclick="adminSifreDegistir()">Değiştir</button>
           </div>
         </div>
+        <div class="m-card">
+          <h3>⚙️ Bitrix24 CRM Alanları</h3>
+          <p style="font-size:12px;color:#64748b;margin-bottom:10px">Deal'lerde UF_CRM_* özel alanları henüz oluşturulmadıysa aşağıdaki butona tıklayın. <strong>Tek seferlik kurulum işlemidir.</strong></p>
+          <button class="btn btn-secondary" onclick="ufAlanlariniOlustur()">🔧 UF_CRM Alanlarını Oluştur</button>
+          <div id="uf-durum" style="margin-top:8px;font-size:12px"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -414,26 +420,63 @@ function renderApp() {
   BX24.fitWindow();
 }
 
-// ====== DEPOLAMA: localStorage ======
-var LS_PREFIX = 'devremulk_';
+// ====== DEPOLAMA: Bitrix24 crm.product (tesis kataloğu) ======
+var TESIS_SECTION_NAME = 'Devremülk Tesisleri';
+var _tesisSectionId = null;
+
+function entityInit(cb) {
+  // Ürün bölümü var mı kontrol et, yoksa oluştur
+  BX24.callMethod('catalog.section.list', {
+    filter: { NAME: TESIS_SECTION_NAME }, select: ['ID','NAME']
+  }, function(r) {
+    if (!r.error() && r.data() && r.data().length) {
+      _tesisSectionId = r.data()[0].ID;
+      if (cb) cb();
+    } else {
+      // catalog.section çalışmıyorsa iblockId lazım, en basit: sectionId olmadan product kullan
+      _tesisSectionId = null;
+      if (cb) cb();
+    }
+  });
+}
+
+// Tesis listesini Bitrix24 ürün kataloğundan yükle
+function _tesisListesiGetir(cb) {
+  BX24.callMethod('crm.product.list', {
+    filter: { '>=PRICE': 0 },
+    select: ['ID', 'NAME', 'DESCRIPTION', 'DETAIL_TEXT']
+  }, function(r) {
+    if (r.error()) { cb([]); return; }
+    var tumUrunler = r.data() || [];
+    // Sadece bizim tesislerimizi filtrele (DETAIL_TEXT başlangıcı)
+    var tesisler = tumUrunler.filter(function(u) {
+      return u.DETAIL_TEXT && u.DETAIL_TEXT.indexOf('__DEVREMULK__') === 0;
+    }).map(function(u) {
+      try {
+        var meta = JSON.parse(u.DETAIL_TEXT.replace('__DEVREMULK__', ''));
+        meta.id = u.ID;
+        meta.ad = u.NAME;
+        return meta;
+      } catch(e) { return null; }
+    }).filter(Boolean);
+    cb(tesisler);
+  });
+}
 
 function storageGet(key, cb) {
-  var val = localStorage.getItem(LS_PREFIX + key);
-  cb(val);
+  // Admin şifresi için localStorage yeterli (sadece lokal güvenlik)
+  cb(localStorage.getItem('devremulk_' + key));
 }
-
 function storageSet(key, value, cb) {
-  localStorage.setItem(LS_PREFIX + key, value);
+  localStorage.setItem('devremulk_' + key, value);
   if (cb) cb();
 }
-
-function entityInit(cb) { if (cb) cb(); }
 
 var TESISLER = [];
 
 function tesisleriYukle() {
-  storageGet('tesisler', function(data) {
-    TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
+  _tesisListesiGetir(function(list) {
+    TESISLER = list;
     var sel = document.getElementById('field-tesis');
     var mevcutDeger = sel.getAttribute('data-loaded-value') || '';
     sel.innerHTML = '<option value="">Seçiniz...</option>' +
@@ -649,14 +692,11 @@ function adminGiris() {
   });
 }
 function adminTesisleriYukle() {
-  storageGet('tesisler', function(data) {
-    ADMIN_TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
+  _tesisListesiGetir(function(list) {
+    ADMIN_TESISLER = list;
     adminListeyiRender();
     tesisleriYukle();
   });
-}
-function adminTesisleriKaydet(cb) {
-  storageSet('tesisler', JSON.stringify(ADMIN_TESISLER), cb);
 }
 function adminTesisEkle() {
   var ad = document.getElementById('af-ad').value.trim();
@@ -664,8 +704,8 @@ function adminTesisEkle() {
   if (!ad || !sehir) { showToast('Tesis adı ve şehir zorunlu!', 'error'); return; }
   var odaTipleri = document.getElementById('af-oda').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
   if (!odaTipleri.length) odaTipleri = ['Studio','1+1','2+1','3+1','Villa'];
-  ADMIN_TESISLER.push({
-    id: Date.now(), ad: ad, sehir: sehir,
+  var meta = {
+    sehir: sehir,
     yildiz: document.getElementById('af-yildiz').value,
     uniteSayi: document.getElementById('af-unite').value,
     haftaSayi: parseInt(document.getElementById('af-hafta').value) || 52,
@@ -680,11 +720,17 @@ function adminTesisEkle() {
       wifi: document.getElementById('aoz-wifi').checked,
       klima: document.getElementById('aoz-klima').checked
     }
-  });
-  adminTesisleriKaydet(function() {
+  };
+  BX24.callMethod('crm.product.add', {
+    fields: {
+      NAME: ad,
+      PRICE: 0,
+      DETAIL_TEXT: '__DEVREMULK__' + JSON.stringify(meta)
+    }
+  }, function(r) {
+    if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
     showToast('✅ ' + ad + ' kaydedildi!', 'success');
-    adminListeyiRender();
-    tesisleriYukle();
+    adminTesisleriYukle();
     ['af-ad','af-sehir','af-unite'].forEach(function(id){document.getElementById(id).value='';});
     document.getElementById('af-hafta').value='52';
     document.getElementById('af-yildiz').value='';
@@ -693,13 +739,12 @@ function adminTesisEkle() {
   });
 }
 function adminTesisSil(id) {
-  var t = ADMIN_TESISLER.find(function(x){return x.id===id;});
-  if (!confirm('"' + t.ad + '" silinsin mi?')) return;
-  ADMIN_TESISLER = ADMIN_TESISLER.filter(function(x){return x.id!==id;});
-  adminTesisleriKaydet(function() {
+  var t = ADMIN_TESISLER.find(function(x){return String(x.id)===String(id);});
+  if (!t || !confirm('"' + t.ad + '" silinsin mi?')) return;
+  BX24.callMethod('crm.product.delete', { id: id }, function(r) {
+    if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
     showToast('🗑️ Silindi', 'error');
-    adminListeyiRender();
-    tesisleriYukle();
+    adminTesisleriYukle();
   });
 }
 function adminListeyiRender() {
@@ -715,6 +760,54 @@ function adminListeyiRender() {
     return '<div class="tesis-item"><span class="ti-name">'+t.ad+' '+y+'</span><span class="ti-meta">'+t.sehir+' · '+t.odaTipleri.join(', ')+'</span><button class="btn btn-danger btn-sm" onclick="adminTesisSil('+t.id+')">Sil</button></div>';
   }).join('');
 }
+function ufAlanlariniOlustur() {
+  var durum = document.getElementById('uf-durum');
+  durum.textContent = 'Alanlar oluşturuluyor...';
+  var alanlar = [
+    { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},    USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},         USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_YILDIZ',       EDIT_FORM_LABEL:{tr:'Yıldız'},        USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_ODA_TIPI',     EDIT_FORM_LABEL:{tr:'Oda Tipi'},      USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_HAFTA_NO',     EDIT_FORM_LABEL:{tr:'Hafta No'},      USER_TYPE_ID:'integer' },
+    { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},      USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_MULK_TIPI',    EDIT_FORM_LABEL:{tr:'Mülk Tipi'},     USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_SEZON',        EDIT_FORM_LABEL:{tr:'Sezon'},         USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},        USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'}, USER_TYPE_ID:'double' },
+    { FIELD_NAME:'UF_CRM_PESINAT',      EDIT_FORM_LABEL:{tr:'Peşinat'},       USER_TYPE_ID:'double' },
+    { FIELD_NAME:'UF_CRM_TAKSIT',       EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},USER_TYPE_ID:'integer' },
+    { FIELD_NAME:'UF_CRM_FAIZ',         EDIT_FORM_LABEL:{tr:'Faiz (%)'},      USER_TYPE_ID:'double' },
+    { FIELD_NAME:'UF_CRM_SOZLESME_NO',  EDIT_FORM_LABEL:{tr:'Sözleşme No'},   USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_TAPU_TARIHI',  EDIT_FORM_LABEL:{tr:'Tapu Tarihi'},   USER_TYPE_ID:'date' },
+    { FIELD_NAME:'UF_CRM_TAPU_DURUM',   EDIT_FORM_LABEL:{tr:'Tapu Durumu'},   USER_TYPE_ID:'string' },
+    { FIELD_NAME:'UF_CRM_OZ_DENIZ',     EDIT_FORM_LABEL:{tr:'Denize Sıfır'}, USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_HAVUZ',     EDIT_FORM_LABEL:{tr:'Havuz'},         USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_SPA',       EDIT_FORM_LABEL:{tr:'SPA'},           USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_COCUK',     EDIT_FORM_LABEL:{tr:'Çocuk Kulübü'}, USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_RESTORAN',  EDIT_FORM_LABEL:{tr:'Restoran'},      USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_OTOPARK',   EDIT_FORM_LABEL:{tr:'Otopark'},       USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_WIFI',      EDIT_FORM_LABEL:{tr:'Wi-Fi'},         USER_TYPE_ID:'boolean' },
+    { FIELD_NAME:'UF_CRM_OZ_KLIMA',     EDIT_FORM_LABEL:{tr:'Klima'},         USER_TYPE_ID:'boolean' }
+  ];
+  var tamam = 0, hata = 0, toplam = alanlar.length;
+  alanlar.forEach(function(alan) {
+    BX24.callMethod('crm.deal.userfield.add', {
+      fields: Object.assign({ ENTITY_ID: 'CRM_DEAL', MANDATORY: 'N', SHOW_FILTER: 'Y', SHOW_IN_LIST: 'Y' }, alan)
+    }, function(r) {
+      if (r.error()) {
+        // Zaten var hatası normal (kod 'ERROR_ALREADY_EXISTS' veya benzeri)
+        hata++;
+      } else {
+        tamam++;
+      }
+      if (tamam + hata === toplam) {
+        durum.innerHTML = '<span style="color:green">✅ ' + tamam + ' alan oluşturuldu</span>' +
+          (hata ? ' <span style="color:#d97706">('+hata+' zaten vardı veya hata)</span>' : '');
+      }
+    });
+  });
+}
+
 function adminSifreDegistir() {
   var s1 = document.getElementById('admin-yeni-sifre').value;
   var s2 = document.getElementById('admin-yeni-sifre2').value;
