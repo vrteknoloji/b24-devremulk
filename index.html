@@ -414,49 +414,20 @@ function renderApp() {
   BX24.fitWindow();
 }
 
-// ====== DEPOLAMA: entity.item ======
-var ENTITY_CODE = 'devremulk_config';
+// ====== DEPOLAMA: localStorage ======
+var LS_PREFIX = 'devremulk_';
 
 function storageGet(key, cb) {
-  BX24.callMethod('entity.item.get', {
-    ENTITY: ENTITY_CODE, FILTER: { NAME: key }
-  }, function(r) {
-    if (!r.error()) {
-      var items = r.data();
-      cb(items && items.length ? items[0].DETAIL_TEXT : null);
-    } else { cb(null); }
-  });
+  var val = localStorage.getItem(LS_PREFIX + key);
+  cb(val);
 }
 
 function storageSet(key, value, cb) {
-  // Önce sil, sonra ekle
-  BX24.callMethod('entity.item.get', {
-    ENTITY: ENTITY_CODE, FILTER: { NAME: key }
-  }, function(r) {
-    var items = !r.error() ? r.data() : [];
-    function doAdd() {
-      BX24.callMethod('entity.item.add', {
-        ENTITY: ENTITY_CODE, NAME: key, DETAIL_TEXT: value
-      }, function() { if (cb) cb(); });
-    }
-    if (items && items.length) {
-      BX24.callMethod('entity.item.update', {
-        ENTITY: ENTITY_CODE, ID: items[0].ID, DETAIL_TEXT: value
-      }, function() { if (cb) cb(); });
-    } else { doAdd(); }
-  });
+  localStorage.setItem(LS_PREFIX + key, value);
+  if (cb) cb();
 }
 
-// entity yoksa oluştur
-function entityInit(cb) {
-  BX24.callMethod('entity.get', { ENTITY: ENTITY_CODE }, function(r) {
-    if (r.error() || !r.data() || !r.data().length) {
-      BX24.callMethod('entity.add', {
-        ENTITY: ENTITY_CODE, NAME: 'Devremülk Config', ACCESS: { AU: 'X' }
-      }, function() { if (cb) cb(); });
-    } else { if (cb) cb(); }
-  });
-}
+function entityInit(cb) { if (cb) cb(); }
 
 var TESISLER = [];
 
