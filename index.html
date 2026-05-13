@@ -382,8 +382,9 @@ textarea{resize:vertical;font-family:inherit}
             <div class="m-fg"><label>Hafta Sayısı</label><input id="af-hafta" type="number" value="52"/></div>
           </div>
           <div class="m-fg" style="margin-bottom:10px">
-            <label>Oda Tipleri <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler bu tesis için seçili)</span></label>
+            <label>Oda Tipleri &amp; Kapasite <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler bu tesis için seçili)</span></label>
             <div id="af-oda-liste" style="display:flex;flex-wrap:wrap;gap:6px;padding:7px 8px;border:1px solid #e2e8f0;border-radius:5px;min-height:38px;background:#fff;margin-bottom:6px"></div>
+            <div id="af-kapasite-satir" style="display:flex;flex-wrap:wrap;gap:8px;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;margin-bottom:6px"></div>
             <div style="display:flex;gap:6px;align-items:center">
               <input id="af-oda-yeni" placeholder="Yeni tip ekle (ör: 4+1)" style="flex:1;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"/>
               <button type="button" onclick="afOdaEkle()" style="padding:5px 12px;background:#2563eb;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer">+ Ekle</button>
@@ -1186,7 +1187,8 @@ function afKapasiteSatirGuncelle(mevcutKap) {
   var satir = document.getElementById('af-kapasite-satir');
   if (!satir) return;
   var secili = afOdaOku();
-  if (!secili.length) { satir.innerHTML = ''; return; }
+  if (!secili.length) { satir.innerHTML = ''; satir.style.display='none'; return; }
+  satir.style.display = 'flex';
   var mevcut = mevcutKap || afKapasiteOku(); // mevcut değleri koru
   satir.innerHTML = secili.map(function(o){
     var val = mevcut[o] || '';
