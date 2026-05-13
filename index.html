@@ -392,7 +392,7 @@ function yukle() {
   BX24.callMethod('crm.deal.get', { id: STATE.dealId }, function(res) {
     if (res.error()) { showError('Deal yüklenemedi: ' + res.error_description()); return; }
     STATE.deal = res.data();
-    if (STATE.deal.CONTACT_ID) {
+    if (STATE.deal.CONTACT_ID && parseInt(STATE.deal.CONTACT_ID) > 0) {
       BX24.callMethod('crm.contact.get', { id: STATE.deal.CONTACT_ID }, function(r) {
         if (!r.error()) STATE.contact = r.data();
         renderApp();
@@ -408,7 +408,8 @@ function renderApp() {
   set('deal-name', d.TITLE || ('Deal #' + d.ID));
   if (d.ASSIGNED_BY_ID) {
     BX24.callMethod('user.get', {ID: d.ASSIGNED_BY_ID}, function(r) {
-      if (!r.error() && r.data().length) { var u=r.data()[0]; set('field-assigned',(u.NAME||'')+' '+(u.LAST_NAME||'')); }
+      if (!r.error() && r.data() && r.data().length) { var u=r.data()[0]; set('field-assigned',(u.NAME||'')+' '+(u.LAST_NAME||'')); }
+      // 401 scope hatası olsa da sessizce geç
     });
   }
   if (c) { set('field-contact-name', ((c.NAME||'')+' '+(c.LAST_NAME||'')).trim()); }
@@ -424,45 +425,55 @@ function renderApp() {
   BX24.fitWindow();
 }
 
-// ====== DEPOLAMA: Bitrix24 crm.product (tesis kataloğu) ======
-var TESIS_SECTION_NAME = 'Devremülk Tesisleri';
-var _tesisSectionId = null;
+// ====== DEPOLAMA: crm.deal CONFIG kaydı (tesis kataloğu) ======
+var CONFIG_DEAL_TITLE = '⚙️ DEVREMULK_CONFIG';
+var _configDealId = null;
 
 function entityInit(cb) {
-  // Ürün bölümü var mı kontrol et, yoksa oluştur
-  BX24.callMethod('catalog.section.list', {
-    filter: { NAME: TESIS_SECTION_NAME }, select: ['ID','NAME']
+  // Config deal var mı bul
+  BX24.callMethod('crm.deal.list', {
+    filter: { TITLE: CONFIG_DEAL_TITLE },
+    select: ['ID', 'TITLE']
   }, function(r) {
     if (!r.error() && r.data() && r.data().length) {
-      _tesisSectionId = r.data()[0].ID;
-      if (cb) cb();
-    } else {
-      // catalog.section çalışmıyorsa iblockId lazım, en basit: sectionId olmadan product kullan
-      _tesisSectionId = null;
-      if (cb) cb();
+      _configDealId = r.data()[0].ID;
     }
+    if (cb) cb();
   });
 }
 
-// Tesis listesini Bitrix24 ürün kataloğundan yükle
+function _configOku(cb) {
+  if (!_configDealId) { cb(null); return; }
+  BX24.callMethod('crm.deal.get', { id: _configDealId }, function(r) {
+    if (r.error()) { cb(null); return; }
+    cb(r.data()['UF_CRM_NOTLAR'] || null);
+  });
+}
+
+function _configYaz(jsonStr, cb) {
+  var fields = { 'UF_CRM_NOTLAR': jsonStr };
+  if (_configDealId) {
+    BX24.callMethod('crm.deal.update', { id: _configDealId, fields: fields }, function(r) {
+      if (cb) cb(r.error() ? null : _configDealId);
+    });
+  } else {
+    BX24.callMethod('crm.deal.add', {
+      fields: Object.assign({ TITLE: CONFIG_DEAL_TITLE }, fields)
+    }, function(r) {
+      if (!r.error()) _configDealId = r.data();
+      if (cb) cb(_configDealId);
+    });
+  }
+}
+
+// Tesis listesini config deal'den yükle
 function _tesisListesiGetir(cb) {
-  BX24.callMethod('crm.product.list', {
-    filter: { '>=PRICE': 0 },
-    select: ['ID', 'NAME', 'DESCRIPTION']
-  }, function(r) {
-    if (r.error()) { cb([]); return; }
-    var tumUrunler = r.data() || [];
-    var tesisler = tumUrunler.filter(function(u) {
-      return u.DESCRIPTION && u.DESCRIPTION.indexOf('__DEVREMULK__') === 0;
-    }).map(function(u) {
-      try {
-        var meta = JSON.parse(u.DESCRIPTION.replace('__DEVREMULK__', ''));
-        meta.id = u.ID;
-        meta.ad = u.NAME;
-        return meta;
-      } catch(e) { return null; }
-    }).filter(Boolean);
-    cb(tesisler);
+  _configOku(function(raw) {
+    if (!raw) { cb([]); return; }
+    try {
+      var data = JSON.parse(raw);
+      cb(data.tesisler || []);
+    } catch(e) { cb([]); }
   });
 }
 
@@ -761,35 +772,33 @@ function adminTesisKaydet() {
   };
   var duzenleId = document.getElementById('af-duzenle-id').value;
   if (duzenleId) {
-    // Güncelle
-    BX24.callMethod('crm.product.update', {
-      id: duzenleId,
-      fields: { NAME: ad, DESCRIPTION: '__DEVREMULK__' + JSON.stringify(meta) }
-    }, function(r) {
-      if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
+    ADMIN_TESISLER = ADMIN_TESISLER.map(function(t) {
+      if (String(t.id) === String(duzenleId)) return Object.assign({}, meta, { id: t.id, ad: ad });
+      return t;
+    });
+    _adminTesisleriKaydet(function() {
       showToast('✅ ' + ad + ' güncellendi!', 'success');
       adminFormSifirla();
-      adminTesisleriYukle();
+      adminListeyiRender();
     });
   } else {
-    // Yeni ekle
-    BX24.callMethod('crm.product.add', {
-      fields: { NAME: ad, PRICE: 0, DESCRIPTION: '__DEVREMULK__' + JSON.stringify(meta) }
-    }, function(r) {
-      if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
+    meta.id = Date.now();
+    meta.ad = ad;
+    ADMIN_TESISLER.push(meta);
+    _adminTesisleriKaydet(function() {
       showToast('✅ ' + ad + ' kaydedildi!', 'success');
       adminFormSifirla();
-      adminTesisleriYukle();
+      adminListeyiRender();
     });
   }
 }
 function adminTesisSil(id) {
   var t = ADMIN_TESISLER.find(function(x){return String(x.id)===String(id);});
   if (!t || !confirm('"' + t.ad + '" silinsin mi?')) return;
-  BX24.callMethod('crm.product.delete', { id: id }, function(r) {
-    if (r.error()) { showToast('❌ Hata: ' + r.error_description(), 'error'); return; }
+  ADMIN_TESISLER = ADMIN_TESISLER.filter(function(x){return String(x.id)!==String(id);});
+  _adminTesisleriKaydet(function() {
     showToast('🗑️ Silindi', 'error');
-    adminTesisleriYukle();
+    adminListeyiRender();
   });
 }
 function adminListeyiRender() {
