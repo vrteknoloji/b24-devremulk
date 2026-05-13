@@ -1,0 +1,21 @@
+{
+  "name": "Devremülk Yönetimi",
+  "name_i18n": {
+    "tr": "Devremülk Yönetimi",
+    "en": "Timeshare Management"
+  },
+  "description": "CRM Deal üzerinde devremülk satış süreçlerini yönetmek için yerel uygulama.",
+  "version": "1.0.0",
+  "vendor": "B24 Devremülk",
+  "placement": [
+    {
+      "placement": "CRM_DEAL_DETAIL_TAB",
+      "title": "🏖️ Devremülk",
+      "description": "Devremülk mülk detayı, ödeme planı ve belgeler",
+      "options": {
+        "iframeWidth": "100%",
+        "iframeHeight": "600"
+      }
+    }
+  ]
+}

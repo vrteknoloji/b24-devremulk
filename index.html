@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Devremülk Yönetimi</title>
+  <script src="//api.bitrix24.com/api/v1/"></script>
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#2563eb;--primary-dark:#1d4ed8;--success:#16a34a;--warning:#d97706;--danger:#dc2626;--bg:#f1f5f9;--surface:#ffffff;--border:#e2e8f0;--text:#1e293b;--text-muted:#64748b;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;background:var(--bg);color:var(--text);min-height:100vh}
+.hidden{display:none!important}
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px;color:var(--text-muted)}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.app-header{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px}
+.app-header-left{display:flex;align-items:center;gap:10px}
+.app-logo{font-size:28px;line-height:1}
+.app-title{font-size:15px;font-weight:700;color:var(--text);line-height:1.2}
+.deal-name{font-size:12px;color:var(--text-muted);margin-top:2px}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#dbeafe;color:var(--primary)}
+.badge.success{background:#dcfce7;color:var(--success)}
+.badge.warning{background:#fef3c7;color:var(--warning)}
+.badge.danger{background:#fee2e2;color:var(--danger)}
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;gap:2px;overflow-x:auto}
+.tab-btn{padding:10px 16px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:var(--primary)}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-content{padding:16px;display:flex;flex-direction:column;gap:16px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.card.full-width{grid-column:1/-1}
+.card-title{font-size:13px;font-weight:700;color:var(--text);padding-bottom:8px;border-bottom:1px solid var(--border)}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-group label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px}
+input[type="text"],input[type="number"],input[type="date"],select,textarea{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text);background:var(--surface);transition:border-color .15s;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.input-readonly{background:#f8fafc;color:var(--text-muted);cursor:default}
+textarea{resize:vertical;font-family:inherit}
+.checkbox-group{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checkbox-label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px;border:1px solid var(--border);transition:background .1s}
+.checkbox-label:hover{background:#f8fafc}
+.checkbox-label input[type="checkbox"]{width:14px;height:14px;accent-color:var(--primary);cursor:pointer}
+.odeme-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px}
+.odeme-sonuc{margin-top:16px;border-top:1px solid var(--border);padding-top:16px}
+.sonuc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.sonuc-item{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.sonuc-label{display:block;font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;margin-bottom:4px}
+.sonuc-value{display:block;font-size:16px;font-weight:700;color:var(--text)}
+.sonuc-value.highlight{font-size:20px;color:var(--primary)}
+#odeme-takvim-container table{width:100%;border-collapse:collapse;font-size:12px}
+#odeme-takvim-container th{background:#f1f5f9;padding:6px 10px;text-align:left;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
+#odeme-takvim-container td{padding:6px 10px;border-bottom:1px solid var(--border)}
+#odeme-takvim-container tr:hover td{background:#f8fafc}
+.belge-checklist{display:flex;flex-direction:column;gap:8px}
+.belge-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;transition:background .1s}
+.belge-item:hover{background:#f8fafc}
+.belge-item input[type="checkbox"]{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.belge-item label{font-size:13px;cursor:pointer;flex:1}
+.belge-item .belge-badge{font-size:10px;padding:2px 7px;border-radius:10px;background:#fee2e2;color:var(--danger);font-weight:600}
+.belge-item.tamamlandi label{text-decoration:line-through;color:var(--text-muted)}
+.belge-item.tamamlandi .belge-badge{background:#dcfce7;color:var(--success)}
+.action-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:10}
+.btn{padding:8px 18px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:#e2e8f0;color:var(--text)}
+.btn-secondary:hover{background:#cbd5e1}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:#f8fafc}
+.save-status{font-size:12px;color:var(--text-muted);margin-left:4px}
+.toast{position:fixed;bottom:70px;right:20px;background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 6px rgba(0,0,0,.1);z-index:999;animation:fadeInUp .2s ease}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.empty-state{color:var(--text-muted);font-size:13px;text-align:center;padding:24px 0}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="loading" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Yükleniyor...</p>
+  </div>
+  <div id="main-panel" class="hidden">
+    <div class="app-header">
+      <div class="app-header-left">
+        <span class="app-logo">🏖️</span>
+        <div>
+          <h1 class="app-title">Devremülk Yönetimi</h1>
+          <p class="deal-name" id="deal-name">—</p>
+        </div>
+      </div>
+      <div class="app-header-right">
+        <span class="badge" id="status-badge">—</span>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="genel">Genel Bilgiler</button>
+      <button class="tab-btn" data-tab="mulk">Mülk Detayı</button>
+      <button class="tab-btn" data-tab="odeme">Ödeme Planı</button>
+      <button class="tab-btn" data-tab="belgeler">Belgeler</button>
+    </div>
+    <div class="tab-content active" id="tab-genel">
+      <div class="card-grid">
+        <div class="card">
+          <h3 class="card-title">📋 Deal Bilgisi</h3>
+          <div class="field-group"><label>Deal ID</label><input type="text" id="field-deal-id" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Müşteri Adı</label><input type="text" id="field-contact-name" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Sorumlu Danışman</label><input type="text" id="field-assigned" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Deal Tutarı</label><input type="text" id="field-opportunity" readonly class="input-readonly"/></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">🏷️ Devremülk Bilgisi</h3>
+          <div class="field-group"><label>Tesis Adı</label><input type="text" id="field-tesis" placeholder="Tesis adı giriniz"/></div>
+          <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: A-204"/></div>
+          <div class="field-group"><label>Hafta No</label><input type="text" id="field-hafta" placeholder="Örn: 28, 29, 30"/></div>
+          <div class="field-group">
+            <label>Oda Tipi</label>
+            <select id="field-oda-tipi">
+              <option value="">Seçiniz...</option>
+              <option value="studio">Studio</option>
+              <option value="1+1">1+1</option>
+              <option value="2+1">2+1</option>
+              <option value="3+1">3+1</option>
+              <option value="villa">Villa</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content hidden" id="tab-mulk">
+      <div class="card-grid">
+        <div class="card">
+          <h3 class="card-title">📍 Konum &amp; Tesis</h3>
+          <div class="field-group"><label>Şehir / Bölge</label><input type="text" id="field-sehir" placeholder="Örn: Bodrum, Marmaris..."/></div>
+          <div class="field-group">
+            <label>Tesis Yıldızı</label>
+            <select id="field-yildiz">
+              <option value="">Seçiniz...</option>
+              <option value="3">⭐⭐⭐ 3 Yıldız</option>
+              <option value="4">⭐⭐⭐⭐ 4 Yıldız</option>
+              <option value="5">⭐⭐⭐⭐⭐ 5 Yıldız</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Mülk Tipi</label>
+            <select id="field-mulk-tipi">
+              <option value="">Seçiniz...</option>
+              <option value="devre_tatil">Devre Tatil</option>
+              <option value="devre_mulk">Devremülk (Tapu)</option>
+              <option value="puan_sistemi">Puan Sistemi</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Kullanım Sezonu</label>
+            <select id="field-sezon">
+              <option value="">Seçiniz...</option>
+              <option value="yuksek">Yüksek Sezon</option>
+              <option value="orta">Orta Sezon</option>
+              <option value="dusuk">Düşük Sezon</option>
+              <option value="tum_yil">Tüm Yıl</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">🏊 Tesis Özellikleri</h3>
+          <div class="checkbox-group">
+            <label class="checkbox-label"><input type="checkbox" id="f-deniz"/> Denize Sıfır</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-havuz"/> Yüzme Havuzu</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-spa"/> SPA &amp; Wellness</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-cocuk"/> Çocuk Kulübü</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-restoran"/> Restoran</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-otopark"/> Otopark</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-wifi"/> Wi-Fi</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-klima"/> Klima</label>
+          </div>
+        </div>
+        <div class="card full-width">
+          <h3 class="card-title">📝 Özel Notlar</h3>
+          <textarea id="field-notlar" rows="4" placeholder="Mülk hakkında özel notlar, müşteri talepleri..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content hidden" id="tab-odeme">
+      <div class="card">
+        <h3 class="card-title">💰 Ödeme Planı</h3>
+        <div class="odeme-form">
+          <div class="field-group"><label>Toplam Satış Fiyatı (₺)</label><input type="number" id="field-satis-fiyati" placeholder="0"/></div>
+          <div class="field-group"><label>Peşinat (₺)</label><input type="number" id="field-pesinat" placeholder="0"/></div>
+          <div class="field-group">
+            <label>Taksit Sayısı</label>
+            <select id="field-taksit">
+              <option value="0">Peşin</option>
+              <option value="3">3 Ay</option>
+              <option value="6">6 Ay</option>
+              <option value="12">12 Ay</option>
+              <option value="24">24 Ay</option>
+              <option value="36">36 Ay</option>
+              <option value="48">48 Ay</option>
+              <option value="60">60 Ay</option>
+            </select>
+          </div>
+          <div class="field-group"><label>Faiz Oranı (%)</label><input type="number" id="field-faiz" placeholder="0" step="0.1"/></div>
+        </div>
+        <button class="btn btn-secondary" onclick="hesaplaOdeme()">📊 Hesapla</button>
+        <div id="odeme-sonuc" class="odeme-sonuc hidden">
+          <div class="sonuc-grid">
+            <div class="sonuc-item"><span class="sonuc-label">Peşinat</span><span class="sonuc-value" id="sonuc-pesinat">—</span></div>
+            <div class="sonuc-item"><span class="sonuc-label">Kalan Tutar</span><span class="sonuc-value" id="sonuc-kalan">—</span></div>
+            <div class="sonuc-item"><span class="sonuc-label">Aylık Taksit</span><span class="sonuc-value highlight" id="sonuc-taksit">—</span></div>
+            <div class="sonuc-item"><span class="sonuc-label">Toplam Ödenecek</span><span class="sonuc-value" id="sonuc-toplam">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">📅 Ödeme Takvimi</h3>
+        <div id="odeme-takvim-container"><p class="empty-state">Ödeme planını hesapladıktan sonra takvim oluşturulacak.</p></div>
+      </div>
+    </div>
+    <div class="tab-content hidden" id="tab-belgeler">
+      <div class="card">
+        <h3 class="card-title">📄 Gerekli Belgeler</h3>
+        <div class="belge-checklist" id="belge-list"></div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">🔗 Sözleşme &amp; Tapu</h3>
+        <div class="field-group"><label>Sözleşme No</label><input type="text" id="field-sozlesme-no" placeholder="SZ-2026-XXXX"/></div>
+        <div class="field-group"><label>Tapu Tarihi</label><input type="date" id="field-tapu-tarihi"/></div>
+        <div class="field-group">
+          <label>Tapu Durumu</label>
+          <select id="field-tapu-durum">
+            <option value="">Seçiniz...</option>
+            <option value="bekleniyor">Bekleniyor</option>
+            <option value="hazırlaniyor">Hazırlanıyor</option>
+            <option value="imzalandi">İmzalandı</option>
+            <option value="tamamlandi">Teslim Edildi</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="kaydet()">💾 Kaydet</button>
+      <button class="btn btn-ghost" onclick="yenile()">🔄 Yenile</button>
+      <span id="save-status" class="save-status"></span>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+var STATE = { dealId: null, deal: null, contact: null };
+
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = this.getAttribute('data-tab');
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.add('hidden');});
+    this.classList.add('active');
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    if(window.BX24) BX24.fitWindow();
+  });
+});
+
+BX24.init(function() {
+  BX24.fitWindow();
+  var placement = BX24.placement.info();
+  STATE.dealId = (placement && placement.options && placement.options.ID)
+    ? placement.options.ID
+    : getUrlParam('DEAL_ID') || getUrlParam('ID');
+  if (!STATE.dealId) { showError('Deal ID bulunamadı. Lütfen uygulamayı bir Deal üzerinden açın.'); return; }
+  yukle();
+});
+
+function yukle() {
+  BX24.callMethod('crm.deal.get', { id: STATE.dealId }, function(res) {
+    if (res.error()) { showError('Deal yüklenemedi: ' + res.error_description()); return; }
+    STATE.deal = res.data();
+    if (STATE.deal.CONTACT_ID) {
+      BX24.callMethod('crm.contact.get', { id: STATE.deal.CONTACT_ID }, function(r) {
+        if (!r.error()) STATE.contact = r.data();
+        renderApp();
+      });
+    } else { renderApp(); }
+  });
+}
+
+function renderApp() {
+  var d = STATE.deal, c = STATE.contact;
+  set('field-deal-id', d.ID);
+  set('field-opportunity', formatPara(d.OPPORTUNITY, d.CURRENCY_ID));
+  set('deal-name', d.TITLE || ('Deal #' + d.ID));
+  if (d.ASSIGNED_BY_ID) {
+    BX24.callMethod('user.get', {ID: d.ASSIGNED_BY_ID}, function(r) {
+      if (!r.error() && r.data().length) { var u=r.data()[0]; set('field-assigned',(u.NAME||'')+' '+(u.LAST_NAME||'')); }
+    });
+  }
+  if (c) { set('field-contact-name', ((c.NAME||'')+' '+(c.LAST_NAME||'')).trim()); }
+  else if (d.COMPANY_ID) { BX24.callMethod('crm.company.get',{id:d.COMPANY_ID},function(r){if(!r.error())set('field-contact-name',r.data().TITLE);}); }
+  var badge = document.getElementById('status-badge');
+  var stage = d.STAGE_ID || '';
+  badge.textContent = stage;
+  badge.className = (stage.indexOf('WON')>-1) ? 'badge success' : (stage.indexOf('LOSE')>-1) ? 'badge danger' : 'badge';
+  loadCustomFields(d);
+  belgeleriYukle();
+  goster('main-panel');
+  gizle('loading');
+  BX24.fitWindow();
+}
+
+var FIELD_MAP = {
+  'field-tesis':'UF_CRM_TESIS_ADI','field-unite':'UF_CRM_UNITE_NO','field-hafta':'UF_CRM_HAFTA_NO',
+  'field-oda-tipi':'UF_CRM_ODA_TIPI','field-sehir':'UF_CRM_SEHIR','field-yildiz':'UF_CRM_YILDIZ',
+  'field-mulk-tipi':'UF_CRM_MULK_TIPI','field-sezon':'UF_CRM_SEZON','field-notlar':'UF_CRM_NOTLAR',
+  'field-satis-fiyati':'UF_CRM_SATIS_FIYATI','field-pesinat':'UF_CRM_PESINAT',
+  'field-taksit':'UF_CRM_TAKSIT','field-faiz':'UF_CRM_FAIZ',
+  'field-sozlesme-no':'UF_CRM_SOZLESME_NO','field-tapu-tarihi':'UF_CRM_TAPU_TARIHI','field-tapu-durum':'UF_CRM_TAPU_DURUM'
+};
+var CHECKBOX_MAP = {
+  'f-deniz':'UF_CRM_OZ_DENIZ','f-havuz':'UF_CRM_OZ_HAVUZ','f-spa':'UF_CRM_OZ_SPA',
+  'f-cocuk':'UF_CRM_OZ_COCUK','f-restoran':'UF_CRM_OZ_RESTORAN','f-otopark':'UF_CRM_OZ_OTOPARK',
+  'f-wifi':'UF_CRM_OZ_WIFI','f-klima':'UF_CRM_OZ_KLIMA'
+};
+
+function loadCustomFields(d) {
+  Object.keys(FIELD_MAP).forEach(function(id){var v=d[FIELD_MAP[id]];if(v!=null){var el=document.getElementById(id);if(el)el.value=v;}});
+  Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
+}
+
+function kaydet() {
+  var fields={};
+  Object.keys(FIELD_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[FIELD_MAP[id]]=el.value;});
+  Object.keys(CHECKBOX_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[CHECKBOX_MAP[id]]=el.checked?'Y':'N';});
+  setSaveStatus('Kaydediliyor...');
+  BX24.callMethod('crm.deal.update',{id:STATE.dealId,fields:fields},function(res){
+    if(res.error()){setSaveStatus('');showToast('❌ Hata: '+res.error_description(),'error');}
+    else{setSaveStatus('✅ Kaydedildi');showToast('✅ Başarıyla kaydedildi!','success');setTimeout(function(){setSaveStatus('');},3000);}
+  });
+}
+
+function yenile(){gizle('main-panel');goster('loading');yukle();}
+
+function hesaplaOdeme(){
+  var sf=parseFloat(document.getElementById('field-satis-fiyati').value)||0;
+  var p=parseFloat(document.getElementById('field-pesinat').value)||0;
+  var t=parseInt(document.getElementById('field-taksit').value)||0;
+  var f=parseFloat(document.getElementById('field-faiz').value)||0;
+  if(!sf){showToast('Lütfen satış fiyatını girin.','error');return;}
+  var k=sf-p, ay=0, top=sf;
+  if(t>0&&k>0){
+    if(f>0){var af=f/100/12;ay=k*(af*Math.pow(1+af,t))/(Math.pow(1+af,t)-1);}
+    else{ay=k/t;}
+    top=p+(ay*t);
+  }
+  document.getElementById('sonuc-pesinat').textContent=formatPara(p,'TRY');
+  document.getElementById('sonuc-kalan').textContent=formatPara(k,'TRY');
+  document.getElementById('sonuc-taksit').textContent=t>0?formatPara(ay,'TRY'):'Peşin';
+  document.getElementById('sonuc-toplam').textContent=formatPara(top,'TRY');
+  goster('odeme-sonuc');
+  var con=document.getElementById('odeme-takvim-container');
+  if(t===0){con.innerHTML='<p class="empty-state">Peşin ödeme seçildi.</p>';return;}
+  var now=new Date(),html='<div style="max-height:260px;overflow-y:auto"><table><thead><tr><th>#</th><th>Tarih</th><th>Taksit</th><th>Durum</th></tr></thead><tbody>';
+  for(var i=1;i<=t;i++){
+    var d2=new Date(now.getFullYear(),now.getMonth()+i,1),g=d2<now;
+    html+='<tr><td>'+i+'</td><td>'+d2.toLocaleDateString('tr-TR',{year:'numeric',month:'long'})+'</td><td>'+formatPara(ay,'TRY')+'</td><td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:'+(g?'#dcfce7':'#fef3c7')+';color:'+(g?'#16a34a':'#d97706')+';font-weight:600">'+(g?'Ödendi':'Bekliyor')+'</span></td></tr>';
+  }
+  con.innerHTML=html+'</tbody></table></div>';
+  BX24.fitWindow();
+}
+
+var BELGELER=[
+  {id:'b1',ad:'Kimlik Fotokopisi',z:true},{id:'b2',ad:'Gelir Belgesi / Maaş Pusulası',z:true},
+  {id:'b3',ad:'İkametgah Belgesi',z:true},{id:'b4',ad:'Satış Sözleşmesi',z:true},
+  {id:'b5',ad:'Ön Bilgilendirme Formu',z:true},{id:'b6',ad:'Tapu / Kat Mülkiyeti Belgesi',z:false},
+  {id:'b7',ad:'Cayma Hakkı Belgesi',z:false},{id:'b8',ad:'Vekaletname (varsa)',z:false}
+];
+
+function belgeleriYukle(){
+  document.getElementById('belge-list').innerHTML=BELGELER.map(function(b){
+    return '<div class="belge-item" id="belge-'+b.id+'"><input type="checkbox" id="'+b.id+'" onchange="belgeToggle(\''+b.id+'\')"/><label for="'+b.id+'">'+b.ad+'</label><span class="belge-badge">'+(b.z?'Zorunlu':'İsteğe Bağlı')+'</span></div>';
+  }).join('');
+}
+function belgeToggle(id){
+  var cb=document.getElementById(id),item=document.getElementById('belge-'+id);
+  if(cb.checked)item.classList.add('tamamlandi');else item.classList.remove('tamamlandi');
+}
+
+function set(id,v){var el=document.getElementById(id);if(el)el.value=v||'';}
+function goster(id){var el=document.getElementById(id);if(el)el.classList.remove('hidden');}
+function gizle(id){var el=document.getElementById(id);if(el)el.classList.add('hidden');}
+function setSaveStatus(m){var el=document.getElementById('save-status');if(el)el.textContent=m;}
+function formatPara(n,c){
+  if(!n&&n!==0)return '—';
+  try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency:c||'TRY',minimumFractionDigits:0,maximumFractionDigits:0}).format(parseFloat(n));}
+  catch(e){return parseFloat(n).toFixed(0)+' ₺';}
+}
+function getUrlParam(n){return new URLSearchParams(window.location.search).get(n);}
+var _tt=null;
+function showToast(m,t){
+  var el=document.getElementById('toast');
+  el.textContent=m;el.className='toast'+(t?' '+t:'');
+  clearTimeout(_tt);_tt=setTimeout(function(){el.classList.add('hidden');},3500);
+}
+function showError(m){
+  gizle('loading');
+  document.getElementById('app').innerHTML='<div style="padding:32px;text-align:center;color:#dc2626"><p style="font-size:28px;margin-bottom:12px">⚠️</p><p style="font-weight:600">'+m+'</p></div>';
+}
+</script>
+</body>
+</html>
