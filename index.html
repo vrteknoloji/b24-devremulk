@@ -654,7 +654,7 @@ function tesisSecildi(ad) {
   if (!odaTipleri.length) { odaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Oda tipi tanımlanmamış</span>'; }
   else { odaWrap.innerHTML = odaTipleri.map(function(o){
     var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
-    return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+'/> '+o+'</label>';
+    return '<label class="oda-cb"><input type="radio" name="oda-tipi-sec" value="'+o+'"'+chk+'/> '+o+'</label>';
   }).join(''); }
   // Hafta seçenekleri — çoktan seçmeli checkbox grid
   var haftaWrap = document.getElementById('field-hafta');
@@ -816,12 +816,13 @@ function _kaydetYap() {
     }
     if(id==='field-oda-tipi'){
       var wrap=document.getElementById('field-oda-tipi');
-      var seciliTexts=wrap?Array.prototype.slice.call(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;}):[]; 
+      var seciliRadio=wrap?wrap.querySelector('input[type="radio"]:checked'):null;
+      var seciliText=seciliRadio?seciliRadio.value:'';
       if(ODA_ENUM.fieldId){
-        var seciliIds=seciliTexts.map(function(v){return ODA_ENUM.valToId[v];}).filter(Boolean);
-        fields['UF_CRM_ODA_TIPI']=seciliIds.length?seciliIds:seciliTexts;
+        var seciliId=ODA_ENUM.valToId[seciliText];
+        fields['UF_CRM_ODA_TIPI']=seciliId?[seciliId]:(seciliText?[seciliText]:[]);
       } else {
-        fields['UF_CRM_ODA_TIPI']=seciliTexts.join(', ');
+        fields['UF_CRM_ODA_TIPI']=seciliText;
       }
       return;
     }
@@ -1044,7 +1045,7 @@ function afOdaRender(secili) {
   (secili || []).forEach(function(o){ if(tum.indexOf(o)<0) tum.push(o); });
   liste.innerHTML = tum.map(function(o){
     var chk = (secili||[]).indexOf(o)>=0 ? ' checked' : '';
-    return '<label style="display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid #e2e8f0;border-radius:14px;font-size:12px;cursor:pointer;background:#f8fafc;margin-bottom:2px"><input type="checkbox" value="'+o+'"'+chk+' style="width:12px;height:12px;accent-color:#2563eb"/> '+o+'</label>';
+    return '<label style="display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid #e2e8f0;border-radius:14px;font-size:12px;cursor:pointer;background:#f8fafc;margin-bottom:2px"><input type="radio" name="af-oda-radio" value="'+o+'"'+chk+' style="width:12px;height:12px;accent-color:#2563eb"/> '+o+'</label>';
   }).join('');
 }
 function afOdaEkle() {
@@ -1055,7 +1056,7 @@ function afOdaEkle() {
   if (existing) { existing.checked = true; document.getElementById('af-oda-yeni').value=''; return; }
   var label = document.createElement('label');
   label.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid #93c5fd;border-radius:14px;font-size:12px;cursor:pointer;background:#dbeafe;margin-bottom:2px';
-  label.innerHTML = '<input type="checkbox" value="'+yeni+'" checked style="width:12px;height:12px;accent-color:#2563eb"/> '+yeni;
+  label.innerHTML = '<input type="radio" name="af-oda-radio" value="'+yeni+'" checked style="width:12px;height:12px;accent-color:#2563eb"/> '+yeni;
   liste.appendChild(label);
   document.getElementById('af-oda-yeni').value = '';
   // Bitrix24 enum listesine de ekle
@@ -1079,7 +1080,8 @@ function afOdaEkle() {
 function afOdaOku() {
   var liste = document.getElementById('af-oda-liste');
   if (!liste) return [];
-  return Array.prototype.slice.call(liste.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb){return cb.value;});
+  var checked = liste.querySelector('input[type="radio"]:checked');
+  return checked ? [checked.value] : [];
 }
 // ---- Dinamik Özellik Listesi ----
 var AOZ_VARSAYILAN = ['Denize Sıfır','Havuz','SPA','Çocuk Kulübü','Restoran','Otopark','Wi-Fi','Klima'];
@@ -1282,7 +1284,7 @@ function ufAlanlariniOlustur() {
       values:['Tapu Devri Yapıldı','Tapu Devri Bekleniyor','İpotekli','Kiralık'] },
     { FIELD_NAME:'UF_CRM_TAKSIT', EDIT_FORM_LABEL:{tr:'Taksit Sayısı'},
       values:['0 (Peşin)','6','12','18','24','36','48','60'] },
-    { FIELD_NAME:'UF_CRM_ODA_TIPI', EDIT_FORM_LABEL:{tr:'Oda Tipi'}, MULTIPLE:'Y',
+    { FIELD_NAME:'UF_CRM_ODA_TIPI', EDIT_FORM_LABEL:{tr:'Oda Tipi'},
       values:['Studio','1+1','2+1','3+1','Villa','4+1','Bungalov','Dublex'] }
   ];
 
