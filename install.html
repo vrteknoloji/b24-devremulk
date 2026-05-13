@@ -27,6 +27,8 @@
   <p id="subtitle">Deal sayfasına sekme olarak eklemek için aşağıdaki butona tıklayın.</p>
   <button class="btn" id="installBtn" onclick="kurulum()">⚙️ Kurulumu Başlat</button>
   <button class="btn btn-red" id="removeBtn" onclick="kaldir()" style="display:none">🗑️ Kaydı Sil</button>
+  <br/><br/>
+  <a id="admin-link" href="#" onclick="adminAc()" style="font-size:13px;color:#2563eb;text-decoration:none">🔑 Yönetici Paneli (Tesis Yönetimi)</a>
   <div class="log" id="log"></div>
 </div>
 
@@ -71,6 +73,11 @@ BX24.init(function() {
     }
   });
 });
+
+window.adminAc = function() {
+  var base = window.location.href.split('/install.html')[0];
+  window.open(base + '/admin.html', '_blank');
+};
 
 window.kurulum = function() {
   var btn = document.getElementById('installBtn');

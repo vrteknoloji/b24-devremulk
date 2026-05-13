@@ -112,18 +112,21 @@ textarea{resize:vertical;font-family:inherit}
         </div>
         <div class="card">
           <h3 class="card-title">🏷️ Devremülk Bilgisi</h3>
-          <div class="field-group"><label>Tesis Adı</label><input type="text" id="field-tesis" placeholder="Tesis adı giriniz"/></div>
+          <div class="field-group">
+            <label>Tesis Adı</label>
+            <select id="field-tesis" onchange="tesisSecildi(this.value)">
+              <option value="">⏳ Yükleniyor...</option>
+            </select>
+          </div>
           <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: A-204"/></div>
-          <div class="field-group"><label>Hafta No</label><input type="text" id="field-hafta" placeholder="Örn: 28, 29, 30"/></div>
+          <div class="field-group">
+            <label>Hafta No</label>
+            <select id="field-hafta"><option value="">Tesis seçin...</option></select>
+          </div>
           <div class="field-group">
             <label>Oda Tipi</label>
             <select id="field-oda-tipi">
-              <option value="">Seçiniz...</option>
-              <option value="studio">Studio</option>
-              <option value="1+1">1+1</option>
-              <option value="2+1">2+1</option>
-              <option value="3+1">3+1</option>
-              <option value="villa">Villa</option>
+              <option value="">Tesis seçin...</option>
             </select>
           </div>
         </div>
@@ -133,15 +136,10 @@ textarea{resize:vertical;font-family:inherit}
       <div class="card-grid">
         <div class="card">
           <h3 class="card-title">📍 Konum &amp; Tesis</h3>
-          <div class="field-group"><label>Şehir / Bölge</label><input type="text" id="field-sehir" placeholder="Örn: Bodrum, Marmaris..."/></div>
+          <div class="field-group"><label>Şehir / Bölge</label><input type="text" id="field-sehir" placeholder="Tesis seçince otomatik dolar" class="input-readonly" readonly/></div>
           <div class="field-group">
             <label>Tesis Yıldızı</label>
-            <select id="field-yildiz">
-              <option value="">Seçiniz...</option>
-              <option value="3">⭐⭐⭐ 3 Yıldız</option>
-              <option value="4">⭐⭐⭐⭐ 4 Yıldız</option>
-              <option value="5">⭐⭐⭐⭐⭐ 5 Yıldız</option>
-            </select>
+            <input type="text" id="field-yildiz" readonly class="input-readonly" placeholder="Tesis seçince otomatik dolar"/>
           </div>
           <div class="field-group">
             <label>Mülk Tipi</label>
@@ -308,6 +306,50 @@ function renderApp() {
   BX24.fitWindow();
 }
 
+var TESISLER = [];
+
+function tesisleriYukle() {
+  BX24.appOption.get('tesisler', function(data) {
+    TESISLER = (data && data !== 'null') ? JSON.parse(data) : [];
+    var sel = document.getElementById('field-tesis');
+    var mevcutDeger = sel.getAttribute('data-loaded-value') || '';
+    sel.innerHTML = '<option value="">Seçiniz...</option>' +
+      TESISLER.map(function(t){
+        var yildiz = t.yildiz ? ' ' + '⭐'.repeat(parseInt(t.yildiz)) : '';
+        return '<option value="'+t.ad+'"'+(t.ad===mevcutDeger?' selected':'')+'>'+t.ad+yildiz+' — '+t.sehir+'</option>';
+      }).join('');
+    if (!TESISLER.length) sel.innerHTML = '<option value="">⚠️ Tesis eklenmemiş (Admin panel)</option>';
+    if (mevcutDeger) tesisSecildi(mevcutDeger);
+  });
+}
+
+function tesisSecildi(ad) {
+  var tesis = TESISLER.find(function(t){ return t.ad === ad; });
+  if (!tesis) {
+    document.getElementById('field-sehir').value = '';
+    document.getElementById('field-yildiz').value = '';
+    document.getElementById('field-oda-tipi').innerHTML = '<option value="">Tesis seçin...</option>';
+    document.getElementById('field-hafta').innerHTML = '<option value="">Tesis seçin...</option>';
+    return;
+  }
+  document.getElementById('field-sehir').value = tesis.sehir;
+  document.getElementById('field-yildiz').value = tesis.yildiz ? '⭐'.repeat(parseInt(tesis.yildiz)) + ' ' + tesis.yildiz + ' Yıldız' : '';
+  // Oda tipleri
+  var odaSel = document.getElementById('field-oda-tipi');
+  var mevcutOda = odaSel.getAttribute('data-loaded-value') || '';
+  odaSel.innerHTML = '<option value="">Seçiniz...</option>' +
+    tesis.odaTipleri.map(function(o){ return '<option value="'+o+'"'+(o===mevcutOda?' selected':'')+'>'+o+'</option>'; }).join('');
+  // Hafta seçenekleri
+  var haftaSel = document.getElementById('field-hafta');
+  var mevcutHafta = haftaSel.getAttribute('data-loaded-value') || '';
+  var toplamHafta = tesis.haftaSayi || 52;
+  var haftaOpts = '<option value="">Seçiniz...</option>';
+  for (var i = 1; i <= toplamHafta; i++) {
+    haftaOpts += '<option value="'+i+'"'+(String(i)===String(mevcutHafta)?' selected':'')+'>Hafta '+i+'</option>';
+  }
+  haftaSel.innerHTML = haftaOpts;
+}
+
 var FIELD_MAP = {
   'field-tesis':'UF_CRM_TESIS_ADI','field-unite':'UF_CRM_UNITE_NO','field-hafta':'UF_CRM_HAFTA_NO',
   'field-oda-tipi':'UF_CRM_ODA_TIPI','field-sehir':'UF_CRM_SEHIR','field-yildiz':'UF_CRM_YILDIZ',
@@ -323,7 +365,24 @@ var CHECKBOX_MAP = {
 };
 
 function loadCustomFields(d) {
-  Object.keys(FIELD_MAP).forEach(function(id){var v=d[FIELD_MAP[id]];if(v!=null){var el=document.getElementById(id);if(el)el.value=v;}});
+  // Tesis dropdown — önce data-loaded-value set edip sonra tesisleriYukle çağırınca seçili gelsin
+  var tesisDegeri = d['UF_CRM_TESIS_ADI'] || '';
+  var haftaDegeri = d['UF_CRM_HAFTA_NO'] || '';
+  var odaDegeri   = d['UF_CRM_ODA_TIPI'] || '';
+  var tesisEl = document.getElementById('field-tesis');
+  var haftaEl = document.getElementById('field-hafta');
+  var odaEl   = document.getElementById('field-oda-tipi');
+  if (tesisEl) tesisEl.setAttribute('data-loaded-value', tesisDegeri);
+  if (haftaEl) haftaEl.setAttribute('data-loaded-value', haftaDegeri);
+  if (odaEl)   odaEl.setAttribute('data-loaded-value', odaDegeri);
+  tesisleriYukle();
+  // Diğer alanlar
+  Object.keys(FIELD_MAP).forEach(function(id){
+    if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz') return;
+    var v = d[FIELD_MAP[id]]; if(v!=null){var el=document.getElementById(id);if(el)el.value=v;}
+  });
+  // Şehir ve yıldız tesisSecildi ile dolacak, ama kayıtlı değer yoksa direkt yaz
+  if (d['UF_CRM_SEHIR']) document.getElementById('field-sehir').setAttribute('data-loaded-value', d['UF_CRM_SEHIR']);
   Object.keys(CHECKBOX_MAP).forEach(function(id){var v=d[CHECKBOX_MAP[id]];var el=document.getElementById(id);if(el&&v)el.checked=(v==='1'||v===true||v==='Y');});
 }
 
@@ -360,6 +419,11 @@ function _kaydetYap() {
   var fields={};
   Object.keys(FIELD_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[FIELD_MAP[id]]=el.value;});
   Object.keys(CHECKBOX_MAP).forEach(function(id){var el=document.getElementById(id);if(el)fields[CHECKBOX_MAP[id]]=el.checked?'Y':'N';});
+  // Şehir ve yıldız otomatik dolu ama readonly — yine de kaydet
+  var sehirEl = document.getElementById('field-sehir');
+  var yildizEl = document.getElementById('field-yildiz');
+  if (sehirEl) fields['UF_CRM_SEHIR'] = sehirEl.value;
+  if (yildizEl) fields['UF_CRM_YILDIZ'] = yildizEl.value;
   setSaveStatus('Kaydediliyor...');
   BX24.callMethod('crm.deal.update',{id:STATE.dealId,fields:fields},function(res){
     if(res.error()){setSaveStatus('');showToast('❌ Hata: '+res.error_description(),'error');}
