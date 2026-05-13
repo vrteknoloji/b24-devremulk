@@ -433,48 +433,24 @@ function renderApp() {
   BX24.fitWindow();
 }
 
-// ====== DEPOLAMA: crm.deal CONFIG kaydı (tesis kataloğu) ======
-var CONFIG_DEAL_TITLE = '⚙️ DEVREMULK_CONFIG';
-var _configDealId = null;
+// ====== DEPOLAMA: BX24.userOption (tesis kataloğu) ======
+// Scope gerektirmez, CRM'de deal/kayıt oluşturmaz, Bitrix24 server'ında saklar.
 
-function entityInit(cb) {
-  // Config deal var mı bul
-  BX24.callMethod('crm.deal.list', {
-    filter: { TITLE: CONFIG_DEAL_TITLE },
-    select: ['ID', 'TITLE']
-  }, function(r) {
-    if (!r.error() && r.data() && r.data().length) {
-      _configDealId = r.data()[0].ID;
-    }
-    if (cb) cb();
-  });
-}
+function entityInit(cb) { if (cb) cb(); }
 
 function _configOku(cb) {
-  if (!_configDealId) { cb(null); return; }
-  BX24.callMethod('crm.deal.get', { id: _configDealId, select: ['ID','UF_CRM_NOTLAR'] }, function(r) {
-    if (r.error()) { cb(null); return; }
-    cb(r.data()['UF_CRM_NOTLAR'] || null);
+  BX24.userOption.get('devremulk_tesisler', function(val) {
+    cb(val || null);
   });
 }
 
 function _configYaz(jsonStr, cb) {
-  var fields = { 'UF_CRM_NOTLAR': jsonStr };
-  if (_configDealId) {
-    BX24.callMethod('crm.deal.update', { id: _configDealId, fields: fields }, function(r) {
-      if (cb) cb(r.error() ? null : _configDealId);
-    });
-  } else {
-    BX24.callMethod('crm.deal.add', {
-      fields: { TITLE: CONFIG_DEAL_TITLE, 'UF_CRM_NOTLAR': jsonStr }
-    }, function(r) {
-      if (!r.error()) _configDealId = r.data();
-      if (cb) cb(_configDealId);
-    });
-  }
+  BX24.userOption.set('devremulk_tesisler', jsonStr, function() {
+    if (cb) cb();
+  });
 }
 
-// Tesis listesini config deal'den yükle
+// Tesis listesini userOption'dan yükle
 function _tesisListesiGetir(cb) {
   _configOku(function(raw) {
     if (!raw) { cb([]); return; }
@@ -486,12 +462,10 @@ function _tesisListesiGetir(cb) {
 }
 
 function storageGet(key, cb) {
-  // Admin şifresi için localStorage yeterli (sadece lokal güvenlik)
-  cb(localStorage.getItem('devremulk_' + key));
+  BX24.userOption.get('devremulk_' + key, function(val) { cb(val || null); });
 }
 function storageSet(key, value, cb) {
-  localStorage.setItem('devremulk_' + key, value);
-  if (cb) cb();
+  BX24.userOption.set('devremulk_' + key, value, function() { if (cb) cb(); });
 }
 
 var TESISLER = [];
