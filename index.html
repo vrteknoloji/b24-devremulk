@@ -116,6 +116,11 @@ textarea{resize:vertical;font-family:inherit}
 .fiyat-matris-table th{background:#f1f5f9;padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;text-align:center}
 .fiyat-matris-table td{padding:3px 5px;border:1px solid #e2e8f0}
 .fiyat-matris-table input{border:none;border-bottom:1px solid #bfdbfe;padding:2px 4px;font-size:12px;width:100%;text-align:right;background:transparent;color:#1d4ed8;font-weight:600}
+.daire-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.daire-table th{background:#f1f5f9;padding:5px 7px;border:1px solid #e2e8f0;font-size:10px;font-weight:700;text-align:center;white-space:nowrap}
+.daire-table td{padding:3px 5px;border:1px solid #e2e8f0;vertical-align:middle}
+.daire-table input[type=text],.daire-table input[type=number]{border:1px solid #e2e8f0;border-radius:4px;padding:3px 5px;font-size:12px;width:100%;box-sizing:border-box}
+.daire-table input[type=text]:focus,.daire-table input[type=number]:focus{border-color:#93c5fd;outline:none}
 .blok-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:4px;font-size:12px}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
@@ -208,12 +213,17 @@ textarea{resize:vertical;font-family:inherit}
             <div id="field-oda-tipi-display" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:#f8fafc;font-size:13px;color:#94a3b8;min-height:36px;display:flex;align-items:center">Blok seçince belirlenir</div>
           </div>
           <div class="field-group">
-            <label>Kat</label>
-            <select id="field-kat" onchange="fiyatOtomatikHesapla()">
+            <label>Kat <span style="font-size:10px;color:#94a3b8;font-weight:400">(daire seçince otomatik)</span></label>
+            <select id="field-kat" disabled style="background:#f8fafc;color:#64748b">
               <option value="">Blok seçin...</option>
             </select>
           </div>
-          <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: C-204"/></div>
+          <div class="field-group">
+            <label>Ünite No</label>
+            <select id="field-unite" onchange="uniteSecildi(this.value)">
+              <option value="">Blok seçin...</option>
+            </select>
+          </div>
         </div>
         <div class="card">
           <h3 class="card-title">📅 Dönem &amp; Hafta Seçimi</h3>
@@ -472,8 +482,11 @@ textarea{resize:vertical;font-family:inherit}
             </div>
           </div>
           <div class="m-fg" style="margin-bottom:10px">
-            <label>Fiyat Matrisi <span style="font-weight:400;color:#94a3b8;font-size:11px">(Blok × Dönem → Baz Fiyat + Kat Artışı)</span></label>
-            <div id="af-fiyat-matris"><p style="color:#94a3b8;font-size:12px">Önce blok ekleyin...</p></div>
+            <label>Daireler <span style="font-weight:400;color:#94a3b8;font-size:11px">(blok seçip daire ekleyin — oda tipi, kat, dönem fiyatları)</span></label>
+            <select id="af-daire-blok-sec" onchange="afDaireRender()" style="width:100%;margin-bottom:8px;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px">
+              <option value="">Önce blok ekleyin...</option>
+            </select>
+            <div id="af-daire-container"></div>
           </div>
           <div class="m-fg" style="margin-bottom:12px">
             <label>Özellikler <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler seçili sayılır)</span></label>
@@ -791,7 +804,6 @@ function blokSecildi(blokAd) {
   var odaWrap = document.getElementById('field-oda-tipi');
   var odaDisplay = document.getElementById('field-oda-tipi-display');
   if (blok && blok.odaTipi) {
-    // Hidden checkboxları ayarla (hafta grid için gerekli)
     if (!odaWrap.querySelector('input[value="'+blok.odaTipi+'"]')) {
       odaWrap.innerHTML = '<label class="oda-cb" style="display:none"><input type="checkbox" value="'+blok.odaTipi+'" checked/> '+blok.odaTipi+'</label>';
     } else {
@@ -805,15 +817,22 @@ function blokSecildi(blokAd) {
     odaDisplay.style.color = '#94a3b8';
     odaDisplay.style.fontWeight = 'normal';
   }
-  // Kat dropdown doldur
-  var katSel = document.getElementById('field-kat');
-  var mevcutKat = katSel.getAttribute('data-loaded-value') || '';
-  katSel.innerHTML = '<option value="">Seçiniz...</option>';
-  if (blok && blok.katSayisi) {
-    for (var i = 1; i <= parseInt(blok.katSayisi); i++) {
-      katSel.innerHTML += '<option value="'+i+'"'+(String(i)===mevcutKat?' selected':'')+'>'+i+'. Kat</option>';
-    }
+  // Ünite dropdown doldur
+  var uniteSel = document.getElementById('field-unite');
+  var mevcutUnite = uniteSel.getAttribute('data-loaded-value') || '';
+  var daireler = blok && blok.daireler ? blok.daireler : [];
+  if (daireler.length) {
+    uniteSel.innerHTML = '<option value="">Daire seçiniz...</option>' +
+      daireler.map(function(d){
+        return '<option value="'+d.uniteNo+'"'+(d.uniteNo===mevcutUnite?' selected':'')+'>'+d.uniteNo+' ('+d.kat+'. kat)</option>';
+      }).join('');
+    if (mevcutUnite) uniteSecildi(mevcutUnite);
+  } else {
+    uniteSel.innerHTML = '<option value="">Daire girilmemiş (Admin panel)</option>';
   }
+  // Kat select'i resetle (uniteSecildi dolduracak)
+  var katSel = document.getElementById('field-kat');
+  katSel.innerHTML = '<option value="">Daire seçince gelir...</option>';
   // Hafta grid
   var haftaWrap = document.getElementById('field-hafta');
   var mevcutHaftalar = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
@@ -824,30 +843,53 @@ function blokSecildi(blokAd) {
   fiyatOtomatikHesapla();
 }
 
-function fiyatOtomatikHesapla() {
+function uniteSecildi(uniteNo) {
+  if (!uniteNo) return;
   var tesisAd = document.getElementById('field-tesis').value;
-  var blokAd = document.getElementById('field-blok').value;
-  var kat = parseInt(document.getElementById('field-kat').value) || 0;
-  var donem = document.getElementById('field-donem').value;
-  var banner = document.getElementById('liste-fiyat-banner');
-  var goster = document.getElementById('liste-fiyat-goster');
+  var blokAd  = document.getElementById('field-blok').value;
+  var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
+  var blok  = tesis && (tesis.bloklar || []).find(function(b){ return b.ad === blokAd; });
+  var daire = blok && (blok.daireler || []).find(function(d){ return d.uniteNo === uniteNo; });
+  if (!daire) return;
+  // Katı otomatik göster
+  var katSel = document.getElementById('field-kat');
+  katSel.innerHTML = '<option value="'+daire.kat+'">'+daire.kat+'. Kat</option>';
+  katSel.value = String(daire.kat);
+  fiyatOtomatikHesapla();
+}
+
+function fiyatOtomatikHesapla() {
+  var tesisAd  = document.getElementById('field-tesis').value;
+  var blokAd   = document.getElementById('field-blok').value;
+  var uniteNo  = document.getElementById('field-unite').value;
+  var donem    = document.getElementById('field-donem').value;
+  var banner   = document.getElementById('liste-fiyat-banner');
+  var goster   = document.getElementById('liste-fiyat-goster');
   var odemeBanner = document.getElementById('odeme-liste-fiyat');
-  if (!blokAd || !kat || !donem) {
+  if (!blokAd || !uniteNo || !donem) {
     if (banner) banner.style.display = 'none';
     if (odemeBanner) odemeBanner.textContent = '—';
     return;
   }
   var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
-  var matris = tesis && tesis.fiyatMatris && tesis.fiyatMatris[blokAd] && tesis.fiyatMatris[blokAd][donem];
-  if (!matris) {
+  var blok  = tesis && (tesis.bloklar || []).find(function(b){ return b.ad === blokAd; });
+  var daire = blok && (blok.daireler || []).find(function(d){ return d.uniteNo === uniteNo; });
+  // Eski fiyatMatris fallback
+  var fiyat = null;
+  if (daire && daire.fiyatlar && daire.fiyatlar[donem]) {
+    fiyat = parseFloat(daire.fiyatlar[donem]);
+  } else if (tesis && tesis.fiyatMatris && tesis.fiyatMatris[blokAd] && tesis.fiyatMatris[blokAd][donem]) {
+    var matris = tesis.fiyatMatris[blokAd][donem];
+    var kat = parseInt(document.getElementById('field-kat').value) || 1;
+    fiyat = (parseFloat(matris.baz) || 0) + (kat - 1) * (parseFloat(matris.katFarki) || 0);
+  }
+  if (fiyat === null) {
     if (banner) banner.style.display = 'none';
-    if (odemeBanner) odemeBanner.textContent = 'Fiyat matrisi tanımlanmamış';
+    if (odemeBanner) odemeBanner.textContent = 'Fiyat tanımlanmamış';
     return;
   }
-  var fiyat = (parseFloat(matris.baz) || 0) + (kat - 1) * (parseFloat(matris.katFarki) || 0);
   if (banner) { banner.style.display = ''; goster.textContent = formatPara(fiyat, 'TRY'); }
   if (odemeBanner) odemeBanner.textContent = formatPara(fiyat, 'TRY');
-  // Satış fiyatını otomatik doldur (kullanıcı değiştirmediyse)
   var sfEl = document.getElementById('field-satis-fiyati');
   if (sfEl && !sfEl.getAttribute('data-manual')) sfEl.value = fiyat;
 }
@@ -1034,6 +1076,8 @@ function loadCustomFields(d) {
   var katEl  = document.getElementById('field-kat');
   if (blokEl) blokEl.setAttribute('data-loaded-value', d['UF_CRM_BLOK'] || '');
   if (katEl)  katEl.setAttribute('data-loaded-value', d['UF_CRM_KAT'] || '');
+  var uniteEl2 = document.getElementById('field-unite');
+  if (uniteEl2) uniteEl2.setAttribute('data-loaded-value', d['UF_CRM_UNITE_NO'] || '');
   var donemEl = document.getElementById('field-donem');
   if (donemEl && d['UF_CRM_DONEM']) donemEl.value = d['UF_CRM_DONEM'];
   var oYEl = document.getElementById('field-odeme-yontemi');
@@ -1598,8 +1642,7 @@ function _afFormDoldur(t) {
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
   afOdaRender(t.odaTipleri || [], t.odaKapasite || {});
   aozRender(t.ozellikler || {});
-  // Bloklar ve fiyat matrisi
-  setTimeout(function(){ afBlokRender(t.bloklar || []); afFiyatMatrisRender(t.fiyatMatris || {}); }, 50);
+  setTimeout(function(){ afBlokRender(t.bloklar || []); }, 50);
 }
 function adminFormSifirla() {
   document.getElementById('af-duzenle-id').value = '';
@@ -1613,6 +1656,7 @@ function adminFormSifirla() {
   var ks = document.getElementById('af-kapasite-satir'); if(ks) ks.innerHTML='';
   aozRender({});
   afBlokRender([]);
+  var dc = document.getElementById('af-daire-container'); if(dc) dc.innerHTML='';
   document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
 }
 function adminTesisDuzenle(id) {
@@ -1638,8 +1682,7 @@ function adminTesisKaydet() {
     odaTipleri: odaTipleri,
     odaKapasite: afKapasiteOku(),
     ozellikler: aozOku(),
-    bloklar: afBlokOku(),
-    fiyatMatris: afFiyatMatrisOku()
+    bloklar: afBlokOku()
   };
   var duzenleId = document.getElementById('af-duzenle-id').value;
   if (duzenleId) {
@@ -1790,20 +1833,27 @@ function afBlokRender(bloklar) {
   AF_BLOKLAR = bloklar ? bloklar.slice() : [];
   var liste = document.getElementById('af-blok-liste');
   if (!liste) return;
-  // Blok oda seçim dropdown'ını da güncelle
   var odaSel = document.getElementById('af-blok-oda');
   if (odaSel) {
     var seciliOdalar = afOdaOku();
     odaSel.innerHTML = '<option value="">Oda tipi seç...</option>' +
       seciliOdalar.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
   }
-  if (!AF_BLOKLAR.length) { liste.innerHTML = '<p style="color:#94a3b8;font-size:12px">İptal Blok eklenmedi</p>'; }
+  // Daire blok seçim dropdown'ını güncelle
+  var daireBSel = document.getElementById('af-daire-blok-sec');
+  if (daireBSel) {
+    var mevcutSec = daireBSel.value;
+    daireBSel.innerHTML = '<option value="">— Blok seçin —</option>' +
+      AF_BLOKLAR.map(function(b){ return '<option value="'+b.ad+'"'+(b.ad===mevcutSec?' selected':'')+'>'+b.ad+' ('+b.odaTipi+')</option>'; }).join('');
+    if (mevcutSec && AF_BLOKLAR.find(function(b){return b.ad===mevcutSec;})) afDaireRender();
+    else { var dc=document.getElementById('af-daire-container'); if(dc) dc.innerHTML=''; }
+  }
+  if (!AF_BLOKLAR.length) { liste.innerHTML = '<p style="color:#94a3b8;font-size:12px">Henüz blok eklenmedi</p>'; }
   else {
     liste.innerHTML = AF_BLOKLAR.map(function(b, i){
-      return '<div class="blok-item"><span style="font-weight:600;min-width:80px">'+b.ad+'</span><span style="color:#2563eb;min-width:50px">'+b.odaTipi+'</span><span style="color:#64748b">'+b.katSayisi+' kat</span><button onclick="afBlokSil('+i+')" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px">×</button></div>';
+      return '<div class="blok-item"><span style="font-weight:600;min-width:80px">'+b.ad+'</span><span style="color:#2563eb;min-width:50px">'+b.odaTipi+'</span><span style="color:#64748b">'+b.katSayisi+' kat</span><span style="color:#94a3b8;font-size:11px;margin-left:4px">'+(b.daireler&&b.daireler.length?b.daireler.length+' daire':'daire yok')+'</span><button onclick="afBlokSil('+i+')" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px">×</button></div>';
     }).join('');
   }
-  afFiyatMatrisRender();
 }
 function afBlokEkle() {
   var ad  = document.getElementById('af-blok-ad').value.trim();
@@ -1823,43 +1873,82 @@ function afBlokOku() {
   return AF_BLOKLAR.slice();
 }
 
-// ======= FİYAT MATRİSİ =======
-var DONEMLER = ['Yaz', 'Bahar', 'Kış'];
-
-function afFiyatMatrisRender(mevcutMatris) {
-  var el = document.getElementById('af-fiyat-matris');
+// ======= DAİRE YÖNETİMİ =======
+function afDaireRender() {
+  var el = document.getElementById('af-daire-container');
   if (!el) return;
-  if (!AF_BLOKLAR.length) { el.innerHTML = '<p style="color:#94a3b8;font-size:12px">Önce blok ekleyin...</p>'; return; }
-  var html = '';
-  AF_BLOKLAR.forEach(function(blok){
-    html += '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">'+blok.ad+' ('+blok.odaTipi+', '+blok.katSayisi+' kat)</div>';
-    html += '<table class="fiyat-matris-table"><thead><tr><th>Dönem</th><th>Baz Fiyat (₺)</th><th>Kat Artışı (₺/kat)</th></tr></thead><tbody>';
-    DONEMLER.forEach(function(d){
-      var m = (mevcutMatris && mevcutMatris[blok.ad] && mevcutMatris[blok.ad][d]) || {};
-      html += '<tr><td style="font-weight:600;color:#475569">'+d+'</td>';
-      html += '<td><input type="number" data-blok="'+blok.ad+'" data-donem="'+d+'" data-tip="baz" placeholder="0" value="'+(m.baz||'')+'"/></td>';
-      html += '<td><input type="number" data-blok="'+blok.ad+'" data-donem="'+d+'" data-tip="katFarki" placeholder="0" value="'+(m.katFarki||'')+'"/></td>';
-      html += '</tr>';
-    });
-    html += '</tbody></table></div>';
+  var blokAd = document.getElementById('af-daire-blok-sec').value;
+  var blok = AF_BLOKLAR.find(function(b){ return b.ad === blokAd; });
+  if (!blok) { el.innerHTML = ''; return; }
+  if (!blok.daireler) blok.daireler = [];
+  var html = '<table class="daire-table">'
+    + '<thead><tr>'
+    + '<th style="width:90px">Ünite No</th><th style="width:50px">Kat</th>'
+    + '<th>Yaz Fiyatı (₺)</th><th>Bahar Fiyatı (₺)</th><th>Kış Fiyatı (₺)</th>'
+    + '<th>Oda Özellikleri</th><th style="width:32px"></th>'
+    + '</tr></thead><tbody>';
+  blok.daireler.forEach(function(d, i) {
+    var oz = (d.ozellikler||[]).join(', ');
+    html += '<tr>'
+      + '<td><input type="text" value="'+d.uniteNo+'" onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'uniteNo\',this.value)"/></td>'
+      + '<td><input type="number" value="'+d.kat+'" min="1" onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'kat\',this.value)"/></td>'
+      + '<td><input type="number" value="'+(d.fiyatlar&&d.fiyatlar.Yaz?d.fiyatlar.Yaz:'')+'" placeholder="0" onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'Yaz\',this.value)"/></td>'
+      + '<td><input type="number" value="'+(d.fiyatlar&&d.fiyatlar.Bahar?d.fiyatlar.Bahar:'')+'" placeholder="0" onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'Bahar\',this.value)"/></td>'
+      + '<td><input type="number" value="'+(d.fiyatlar&&d.fiyatlar.Kis?d.fiyatlar.Kis:'')+'" placeholder="0" onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'Kis\',this.value)"/></td>'
+      + '<td><input type="text" value="'+oz+'" placeholder="Deniz manzarası, balkon..." onchange="afDaireGuncelle(\''+blokAd+'\','+i+',\'ozellikler\',this.value)"/></td>'
+      + '<td><button onclick="afDaireSil(\''+blokAd+'\','+i+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0">×</button></td>'
+      + '</tr>';
   });
+  html += '<tr style="background:#f8fafc">'
+    + '<td><input type="text" id="af-yeni-unite" placeholder="C-101"/></td>'
+    + '<td><input type="number" id="af-yeni-kat" placeholder="1" min="1"/></td>'
+    + '<td><input type="number" id="af-yeni-yaz" placeholder="0"/></td>'
+    + '<td><input type="number" id="af-yeni-bahar" placeholder="0"/></td>'
+    + '<td><input type="number" id="af-yeni-kis" placeholder="0"/></td>'
+    + '<td><input type="text" id="af-yeni-ozellik" placeholder="Deniz manzarası, balkon..."/></td>'
+    + '<td><button onclick="afDaireEkle()" style="background:#16a34a;border:none;color:#fff;cursor:pointer;border-radius:4px;padding:2px 7px;font-size:14px">+</button></td>'
+    + '</tr>';
+  html += '</tbody></table>';
   el.innerHTML = html;
 }
-function afFiyatMatrisOku() {
-  var el = document.getElementById('af-fiyat-matris');
-  if (!el) return {};
-  var matris = {};
-  el.querySelectorAll('input[data-blok]').forEach(function(inp){
-    var blok = inp.getAttribute('data-blok');
-    var donem = inp.getAttribute('data-donem');
-    var tip = inp.getAttribute('data-tip');
-    var val = parseFloat(inp.value) || 0;
-    if (!matris[blok]) matris[blok] = {};
-    if (!matris[blok][donem]) matris[blok][donem] = {};
-    matris[blok][donem][tip] = val;
-  });
-  return matris;
+function afDaireEkle() {
+  var blokAd = document.getElementById('af-daire-blok-sec').value;
+  var blok = AF_BLOKLAR.find(function(b){ return b.ad === blokAd; });
+  if (!blok) return;
+  var uniteNo = document.getElementById('af-yeni-unite').value.trim();
+  var kat = parseInt(document.getElementById('af-yeni-kat').value) || 1;
+  var yaz = parseFloat(document.getElementById('af-yeni-yaz').value) || 0;
+  var bahar = parseFloat(document.getElementById('af-yeni-bahar').value) || 0;
+  var kis = parseFloat(document.getElementById('af-yeni-kis').value) || 0;
+  var ozStr = document.getElementById('af-yeni-ozellik').value.trim();
+  var ozArr = ozStr ? ozStr.split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+  if (!uniteNo) { showToast('Ünite no zorunlu!', 'error'); return; }
+  if (!blok.daireler) blok.daireler = [];
+  blok.daireler.push({ uniteNo:uniteNo, kat:kat, fiyatlar:{Yaz:yaz, Bahar:bahar, Kis:kis}, ozellikler:ozArr });
+  afDaireRender();
+  afBlokRender(AF_BLOKLAR);
 }
+function afDaireSil(blokAd, idx) {
+  var blok = AF_BLOKLAR.find(function(b){ return b.ad === blokAd; });
+  if (!blok || !blok.daireler) return;
+  blok.daireler.splice(idx, 1);
+  afDaireRender();
+  afBlokRender(AF_BLOKLAR);
+}
+function afDaireGuncelle(blokAd, idx, alan, deger) {
+  var blok = AF_BLOKLAR.find(function(b){ return b.ad === blokAd; });
+  if (!blok || !blok.daireler || !blok.daireler[idx]) return;
+  if (alan === 'uniteNo') { blok.daireler[idx].uniteNo = deger; }
+  else if (alan === 'kat') { blok.daireler[idx].kat = parseInt(deger) || 1; }
+  else if (alan === 'Yaz' || alan === 'Bahar' || alan === 'Kis') {
+    if (!blok.daireler[idx].fiyatlar) blok.daireler[idx].fiyatlar = {};
+    blok.daireler[idx].fiyatlar[alan] = parseFloat(deger) || 0;
+  } else if (alan === 'ozellikler') {
+    blok.daireler[idx].ozellikler = deger.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  }
+}
+function afFiyatMatrisRender() {} // eski referanslar için boş bırakıldı
+function afFiyatMatrisOku() { return {}; }
 </script>
 </body>
 </html>
