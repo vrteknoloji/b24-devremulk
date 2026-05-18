@@ -532,7 +532,10 @@ BX24.init(function() {
     ? placement.options.ID
     : getUrlParam('DEAL_ID') || getUrlParam('ID');
   if (!STATE.dealId) { showError('Deal ID bulunamadı. Lütfen uygulamayı bir Deal üzerinden açın.'); return; }
-  entityInit(function() { yukle(); });
+  // Token'ı yenile, sonra yükle
+  BX24.refreshAuth(function() {
+    entityInit(function() { yukle(); });
+  });
 });
 
 // BX24.init bazen Bitrix24 dışında hiç tetiklenmez — 4 saniye timeout koruması
@@ -913,18 +916,20 @@ function indirimTalebiOlustur() {
     'Lütfen özel indirim talebini değerlendirin ve onay verin.'
   ].join('\n');
 
-  // Önce mevcut kullanıcıyı al → RESPONSIBLE_ID zorunlu
-  BX24.callMethod('user.current', {}, function(ur) {
-    var userId = ur.data() ? ur.data().ID : null;
+  // RESPONSIBLE_ID: getAuth'dan senkron al (REST çağrısı gerektirmez)
+  var auth = BX24.getAuth();
+  var userId = auth && auth.user_id ? auth.user_id : null;
 
-    var taskFields = {
-      TITLE: '💰 İndirim Talebi: ' + dealTitle,
-      DESCRIPTION: aciklama,
-      PRIORITY: '1',
-      UF_CRM_TASK: ['D_' + STATE.dealId]   // deal'e bağla
-    };
-    if (userId) taskFields.RESPONSIBLE_ID = userId;
+  var taskFields = {
+    TITLE: '💰 İndirim Talebi: ' + dealTitle,
+    DESCRIPTION: aciklama,
+    PRIORITY: '1',
+    UF_CRM_TASK: ['D_' + STATE.dealId]
+  };
+  if (userId) taskFields.RESPONSIBLE_ID = userId;
 
+  // Token yenile, sonra task oluştur
+  BX24.refreshAuth(function() {
     BX24.callMethod('tasks.task.add', { fields: taskFields }, function(r) {
       if (!r.error()) {
         var taskId = r.data() && r.data().task ? r.data().task.id : (r.data() ? r.data().id : '');
@@ -946,7 +951,7 @@ function indirimTalebiOlustur() {
         }
       });
     });
-  });
+  }); // refreshAuth
 }
 
 function haftaGridYenile() {
