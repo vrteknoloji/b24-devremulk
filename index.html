@@ -463,7 +463,7 @@ textarea{resize:vertical;font-family:inherit}
           </div>
           <div class="m-fg" style="margin-bottom:8px">
             <label>Para Birimi</label>
-            <select id="af-para" style="width:180px;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:13px">
+            <select id="af-para" onchange="afUniteRender(AF_UNITELER)" style="width:220px;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:13px">
               <option value="TRY">TRY — Türk Lirası</option>
             </select>
             <span id="af-para-yukleniyor" style="font-size:11px;color:#94a3b8;margin-left:8px"></span>
@@ -1485,7 +1485,7 @@ function afUniteRender(uniteler) {
     + '<thead><tr>'
     + '<th>Blok</th><th style="width:45px">Kat</th>'
     + '<th style="width:75px">Oda No</th><th style="width:70px">Oda Tipi</th>'
-    + '<th>Yaz ('+para+')</th><th>Bahar ('+para+')</th><th>Kış ('+para+')</th>'
+    + '<th>Yaz</th><th>Bahar</th><th>Kış</th>'
     + '<th style="width:28px"></th>'
     + '</tr></thead><tbody>';
   AF_UNITELER.forEach(function(u, i) {
