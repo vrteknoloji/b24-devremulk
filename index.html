@@ -782,6 +782,8 @@ function tesisSecildi(ad) {
     haftaGridYenile();
   }
 }
+
+function blokSecildi(blokAd) {
   var tesisAd = document.getElementById('field-tesis').value;
   var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
   var blok = tesis && (tesis.bloklar || []).find(function(b){ return b.ad === blokAd; });
