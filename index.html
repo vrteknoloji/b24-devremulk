@@ -1425,27 +1425,36 @@ function adminTesisleriYukle() {
   });
 }
 // ---- Para birimi yükleme ----
-var AF_PARA_BIRIMLERI = [{ID:'TRY',FULL_NAME:'Türk Lirası'}];
-function afParaBirimleriniYukle() {
+var AF_PARA_BIRIMLERI = [{ID:'TRY',FULL_NAME:'Türk Lirası'},{ID:'USD',FULL_NAME:'US Dollar'},{ID:'EUR',FULL_NAME:'Euro'},{ID:'GBP',FULL_NAME:'British Pound'},{ID:'RUB',FULL_NAME:'Russian Ruble'}];
+
+function afParaBirimleriniDoldur(mevcut) {
   var sel = document.getElementById('af-para');
   var lbl = document.getElementById('af-para-yukleniyor');
   if (!sel) return;
+  sel.innerHTML = AF_PARA_BIRIMLERI.map(function(c){
+    return '<option value="'+c.ID+'"'+(c.ID===(mevcut||'TRY')?' selected':'')+'>'+c.ID+(c.FULL_NAME?' — '+c.FULL_NAME:'')+'</option>';
+  }).join('');
+  if (lbl) lbl.textContent = '';
+}
+
+function afParaBirimleriniYukle(mevcut) {
+  var lbl = document.getElementById('af-para-yukleniyor');
   if (lbl) lbl.textContent = 'yükleniyor...';
+  // Önce varsayılanlarla doldur (anında kullanılabilir)
+  afParaBirimleriniDoldur(mevcut);
+  // Sonra Bitrix'ten gerçek listeyi çek
   BX24.callMethod('currency.list', {}, function(r) {
     if (!r.error() && r.data()) {
       var liste = r.data();
+      // Bitrix bazen obje bazen dizi döner
       if (!Array.isArray(liste)) {
-        // object map → array
         liste = Object.keys(liste).map(function(k){ return liste[k]; });
       }
-      AF_PARA_BIRIMLERI = liste.filter(function(c){ return c.ACTIVE === 'Y' || c.ACTIVE === true; });
-      if (!AF_PARA_BIRIMLERI.length) AF_PARA_BIRIMLERI = [{ID:'TRY',FULL_NAME:'Türk Lirası'},{ID:'USD',FULL_NAME:'US Dollar'},{ID:'EUR',FULL_NAME:'Euro'}];
+      // ACTIVE filtresi: alan yoksa da al
+      var aktifler = liste.filter(function(c){ return !c.ACTIVE || c.ACTIVE === 'Y' || c.ACTIVE === true; });
+      if (aktifler.length) AF_PARA_BIRIMLERI = aktifler;
     }
-    var mevcut = sel.value || 'TRY';
-    sel.innerHTML = AF_PARA_BIRIMLERI.map(function(c){
-      return '<option value="'+c.ID+'"'+(c.ID===mevcut?' selected':'')+'>'+c.ID+(c.FULL_NAME?' — '+c.FULL_NAME:'')+'</option>';
-    }).join('');
-    if (lbl) lbl.textContent = '';
+    afParaBirimleriniDoldur(mevcut);
   });
 }
 
@@ -1564,9 +1573,10 @@ function _afFormDoldur(t) {
   document.getElementById('af-sehir').value = t.sehir || '';
   document.getElementById('af-yildiz').value = t.yildiz || '';
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
-  // Para birimi
+  // Para birimi — düzenleme modunda kayıtlı değeri geç
   var paraSel = document.getElementById('af-para');
-  if (paraSel && t.paraBirimi) paraSel.value = t.paraBirimi;
+  if (paraSel && t.paraBirimi) afParaBirimleriniDoldur(t.paraBirimi);
+  else afParaBirimleriniDoldur('TRY');
   setTimeout(function(){ afUniteRender(t.uniteler || []); }, 50);
 }
 function adminFormSifirla() {
