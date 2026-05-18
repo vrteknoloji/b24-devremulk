@@ -110,6 +110,13 @@ textarea{resize:vertical;font-family:inherit}
 .hafta-cb.dolu{background:#fee2e2;border-color:#fca5a5;color:#dc2626;cursor:not-allowed;opacity:.85}
 .hafta-cb.dolu input{pointer-events:none}
 .hafta-cb.kismi{background:#fef9c3;border-color:#fde047;color:#92400e}
+.hafta-cb.bakim{background:#f1f5f9;border-color:#cbd5e1;color:#94a3b8;cursor:not-allowed;font-style:italic}
+.hafta-cb.bakim input{pointer-events:none}
+.fiyat-matris-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.fiyat-matris-table th{background:#f1f5f9;padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;text-align:center}
+.fiyat-matris-table td{padding:3px 5px;border:1px solid #e2e8f0}
+.fiyat-matris-table input{border:none;border-bottom:1px solid #bfdbfe;padding:2px 4px;font-size:12px;width:100%;text-align:right;background:transparent;color:#1d4ed8;font-weight:600}
+.blok-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:4px;font-size:12px}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:90%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -164,7 +171,7 @@ textarea{resize:vertical;font-family:inherit}
         <div>
           <h1 class="app-title">Devremülk Yönetimi</h1>
           <p class="deal-name" id="deal-name">—</p>
-          <p style="font-size:10px;color:#94a3b8">v1.5 — 14 May 2026</p>
+          <p style="font-size:10px;color:#94a3b8">v2.0 — 18 May 2026</p>
         </div>
       </div>
       <div class="app-header-right">
@@ -173,37 +180,82 @@ textarea{resize:vertical;font-family:inherit}
       </div>
     </div>
     <div class="tabs">
-      <button class="tab-btn active" data-tab="genel">Genel Bilgiler</button>
-      <button class="tab-btn" data-tab="mulk">Mülk Detayı</button>
-      <button class="tab-btn" data-tab="odeme">Ödeme Planı</button>
-      <button class="tab-btn" data-tab="belgeler">Belgeler</button>
+      <button class="tab-btn active" data-tab="genel">🏖️ Mülk Seçimi</button>
+      <button class="tab-btn" data-tab="musteri">👤 Müşteri</button>
+      <button class="tab-btn" data-tab="mulk">📋 Mülk Detayı</button>
+      <button class="tab-btn" data-tab="odeme">💰 Ödeme</button>
+      <button class="tab-btn" data-tab="belgeler">📄 Belgeler</button>
     </div>
     <div class="tab-content active" id="tab-genel">
       <div class="card-grid">
         <div class="card">
-          <h3 class="card-title">📋 Deal Bilgisi</h3>
-          <div class="field-group"><label>Deal ID</label><input type="text" id="field-deal-id" readonly class="input-readonly"/></div>
-          <div class="field-group"><label>Müşteri Adı</label><input type="text" id="field-contact-name" readonly class="input-readonly"/></div>
-          <div class="field-group"><label>Sorumlu Danışman</label><input type="text" id="field-assigned" readonly class="input-readonly"/></div>
-          <div class="field-group"><label>Deal Tutarı</label><input type="text" id="field-opportunity" readonly class="input-readonly"/></div>
-        </div>
-        <div class="card">
-          <h3 class="card-title">🏷️ Devremülk Bilgisi</h3>
+          <h3 class="card-title">🏗️ Tesis &amp; Blok Seçimi</h3>
           <div class="field-group">
             <label>Tesis Adı</label>
             <select id="field-tesis" onchange="tesisSecildi(this.value)">
               <option value="">⏳ Yükleniyor...</option>
             </select>
           </div>
-          <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: A-204"/></div>
           <div class="field-group">
-            <label>Oda Tipi</label>
-            <div id="field-oda-tipi" class="oda-tipi-wrap checked-style"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
+            <label>Blok</label>
+            <select id="field-blok" onchange="blokSecildi(this.value)">
+              <option value="">Önce tesis seçin...</option>
+            </select>
           </div>
           <div class="field-group">
-            <label>Hafta No</label>
+            <label>Oda Tipi <span style="font-size:10px;color:#94a3b8;font-weight:400">(blok seçince otomatik)</span></label>
+            <div id="field-oda-tipi" class="oda-tipi-wrap checked-style" style="display:none"></div>
+            <div id="field-oda-tipi-display" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:#f8fafc;font-size:13px;color:#94a3b8;min-height:36px;display:flex;align-items:center">Blok seçince belirlenir</div>
+          </div>
+          <div class="field-group">
+            <label>Kat</label>
+            <select id="field-kat" onchange="fiyatOtomatikHesapla()">
+              <option value="">Blok seçin...</option>
+            </select>
+          </div>
+          <div class="field-group"><label>Ünite No</label><input type="text" id="field-unite" placeholder="Örn: C-204"/></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">📅 Dönem &amp; Hafta Seçimi</h3>
+          <div class="field-group">
+            <label>Kullanım Dönemi</label>
+            <select id="field-donem" onchange="fiyatOtomatikHesapla()">
+              <option value="">Seçiniz...</option>
+              <option value="Yaz">☀️ Yaz Dönemi</option>
+              <option value="Bahar">🌸 Bahar Dönemi</option>
+              <option value="Kış">❄️ Kış Dönemi</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Hafta No <span style="font-size:10px;color:#94a3b8;font-weight:400">— 49-50 bakım haftası</span></label>
             <div id="field-hafta" class="hafta-wrap"><span style="color:#94a3b8;font-size:12px">Tesis seçin...</span></div>
           </div>
+          <div id="liste-fiyat-banner" style="display:none;margin-top:8px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+            <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:2px">Liste Fiyatı (Blok+Kat+Dönem)</div>
+            <div style="font-size:20px;font-weight:800;color:#1d4ed8" id="liste-fiyat-goster">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content hidden" id="tab-musteri">
+      <div class="card-grid">
+        <div class="card">
+          <h3 class="card-title">👤 Müşteri Bilgileri</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field-group"><label>Ad</label><input type="text" id="field-m-isim" placeholder="Ad"/></div>
+            <div class="field-group"><label>Soyad</label><input type="text" id="field-m-soyisim" placeholder="Soyad"/></div>
+          </div>
+          <div class="field-group"><label>Telefon</label><input type="text" id="field-m-tel" placeholder="+90 555 000 0000"/></div>
+          <div class="field-group"><label>E-posta</label><input type="text" id="field-m-email" placeholder="ornek@email.com"/></div>
+          <div class="field-group"><label>Adres</label><textarea id="field-m-adres" rows="3" placeholder="Tam adres..."></textarea></div>
+          <p style="font-size:11px;color:#94a3b8;margin-top:6px">💡 Kaydet butonuna basınca Bitrix24 contact kaydı da güncellenir.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">📋 Deal Bilgisi</h3>
+          <div class="field-group"><label>Deal ID</label><input type="text" id="field-deal-id" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Müşteri (CRM)</label><input type="text" id="field-contact-name" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Sorumlu Danışman</label><input type="text" id="field-assigned" readonly class="input-readonly"/></div>
+          <div class="field-group"><label>Deal Tutarı</label><input type="text" id="field-opportunity" readonly class="input-readonly"/></div>
         </div>
       </div>
     </div>
@@ -251,8 +303,15 @@ textarea{resize:vertical;font-family:inherit}
     <div class="tab-content hidden" id="tab-odeme">
       <div class="card">
         <h3 class="card-title">💰 Ödeme Planı</h3>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:12px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+          <div>
+            <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:2px">Liste Fiyatı <span style="font-weight:400">(Mülk Seçimi sekmesinden otomatik)</span></div>
+            <div style="font-size:18px;font-weight:800;color:#1d4ed8" id="odeme-liste-fiyat">—</div>
+          </div>
+          <button class="btn" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;white-space:nowrap;font-size:12px" onclick="indirimTalebiOlustur()">🏷️ İndirim Talebi Oluştur</button>
+        </div>
         <div class="odeme-form">
-          <div class="field-group"><label>Toplam Satış Fiyatı (₺)</label><input type="number" id="field-satis-fiyati" placeholder="0"/></div>
+          <div class="field-group"><label>Satış Fiyatı (₺)</label><input type="number" id="field-satis-fiyati" placeholder="0"/></div>
           <div class="field-group"><label>Peşinat (₺)</label><input type="number" id="field-pesinat" placeholder="0"/></div>
           <div class="field-group">
             <label>Taksit Sayısı</label>
@@ -268,6 +327,17 @@ textarea{resize:vertical;font-family:inherit}
             </select>
           </div>
           <div class="field-group"><label>Faiz Oranı (%)</label><input type="number" id="field-faiz" placeholder="0" step="0.1"/></div>
+          <div class="field-group">
+            <label>Ödeme Yöntemi</label>
+            <select id="field-odeme-yontemi">
+              <option value="">Seçiniz...</option>
+              <option value="Nakit">💵 Nakit</option>
+              <option value="Kredi Kartı">💳 Kredi Kartı</option>
+              <option value="Banka Transferi">🏦 Banka Transferi</option>
+              <option value="Havale / EFT">📲 Havale / EFT</option>
+              <option value="Çek">📑 Çek</option>
+            </select>
+          </div>
         </div>
         <button class="btn btn-secondary" onclick="hesaplaOdeme()">📊 Hesapla</button>
         <div id="odeme-sonuc" class="odeme-sonuc hidden">
@@ -391,6 +461,20 @@ textarea{resize:vertical;font-family:inherit}
               <button type="button" onclick="afOdaEkle()" style="padding:5px 12px;background:#2563eb;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer">+ Ekle</button>
             </div>
           </div>
+          <div class="m-fg" style="margin-bottom:10px">
+            <label>Bloklar <span style="font-weight:400;color:#94a3b8;font-size:11px">(Blok → Oda Tipi eşleşmesi + kat sayısı)</span></label>
+            <div id="af-blok-liste" style="margin-bottom:6px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 80px auto;gap:5px;align-items:center">
+              <input id="af-blok-ad" placeholder="Blok adı (ör: C Blok)" style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"/>
+              <select id="af-blok-oda" style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"><option value="">Oda tipi seç...</option></select>
+              <input id="af-blok-kat" type="number" placeholder="Kat" min="1" style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:12px"/>
+              <button type="button" onclick="afBlokEkle()" style="padding:5px 10px;background:#2563eb;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer">+ Ekle</button>
+            </div>
+          </div>
+          <div class="m-fg" style="margin-bottom:10px">
+            <label>Fiyat Matrisi <span style="font-weight:400;color:#94a3b8;font-size:11px">(Blok × Dönem → Baz Fiyat + Kat Artışı)</span></label>
+            <div id="af-fiyat-matris"><p style="color:#94a3b8;font-size:12px">Önce blok ekleyin...</p></div>
+          </div>
           <div class="m-fg" style="margin-bottom:12px">
             <label>Özellikler <span style="font-weight:400;color:#94a3b8;font-size:11px">(işaretliler seçili sayılır)</span></label>
             <div id="aoz-liste" class="m-cb-row" style="margin-bottom:8px"></div>
@@ -508,7 +592,14 @@ function renderApp() {
       // 401 scope hatası olsa da sessizce geç
     });
   }
-  if (c) { set('field-contact-name', ((c.NAME||'')+' '+(c.LAST_NAME||'')).trim()); }
+  if (c) { 
+    set('field-contact-name', ((c.NAME||'')+' '+(c.LAST_NAME||'')).trim());
+    set('field-m-isim', c.NAME||'');
+    set('field-m-soyisim', c.LAST_NAME||'');
+    set('field-m-tel', (c.PHONE && c.PHONE[0]) ? c.PHONE[0].VALUE : '');
+    set('field-m-email', (c.EMAIL && c.EMAIL[0]) ? c.EMAIL[0].VALUE : '');
+    set('field-m-adres', c.ADDRESS || '');
+  }
   else if (d.COMPANY_ID) { BX24.callMethod('crm.company.get',{id:d.COMPANY_ID},function(r){if(!r.error())set('field-contact-name',r.data().TITLE);}); }
   var badge = document.getElementById('status-badge');
   var stage = d.STAGE_ID || '';
@@ -650,7 +741,10 @@ function tesisSecildi(ad) {
   if (!tesis) {
     document.getElementById('field-sehir').value = '';
     document.getElementById('field-yildiz').value = '';
-    document.getElementById('field-oda-tipi').innerHTML = '<span style="color:#94a3b8;font-size:12px">Tesis seçin...</span>';
+    document.getElementById('field-blok').innerHTML = '<option value="">Önce tesis seçin...</option>';
+    document.getElementById('field-kat').innerHTML = '<option value="">Blok seçin...</option>';
+    document.getElementById('field-oda-tipi').innerHTML = '';
+    document.getElementById('field-oda-tipi-display').textContent = 'Blok seçince belirlenir';
     document.getElementById('field-hafta').innerHTML = '<span style="color:#94a3b8;font-size:12px">Tesis seçin...</span>';
     return;
   }
@@ -658,22 +752,124 @@ function tesisSecildi(ad) {
   document.getElementById('field-yildiz').value = tesis.yildiz ? tesis.yildiz + ' ⭐' : '';
   // Tesis özelliklerini dinamik render et
   ozelliklerRender(tesis.ozellikler || [], STATE.seciliOzellikler || []);
-  // Oda tipleri — çoktan seçmeli checkbox
+  // Blok dropdown doldur
+  var blokSel = document.getElementById('field-blok');
+  var mevcutBlok = blokSel.getAttribute('data-loaded-value') || '';
+  var bloklar = tesis.bloklar || [];
+  if (bloklar.length) {
+    blokSel.innerHTML = '<option value="">Blok seçiniz...</option>' +
+      bloklar.map(function(b){ return '<option value="'+b.ad+'"'+(b.ad===mevcutBlok?' selected':'')+'>'+b.ad+' ('+b.odaTipi+')</option>'; }).join('');
+    if (mevcutBlok) blokSecildi(mevcutBlok);
+  } else {
+    // Eski yapı (bloğu olmayan tesis) - oda tiplerini manuel göster
+    blokSel.innerHTML = '<option value="">Blok tanımlanmamış</option>';
+    // Oda tiplerini eski şekilde göster
+    var odaWrap = document.getElementById('field-oda-tipi');
+    var mevcutOdalar = (odaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var odaTipleri = tesis.odaTipleri || [];
+    odaWrap.style.display = odaTipleri.length ? 'flex' : 'none';
+    if (!odaTipleri.length) { odaWrap.innerHTML = ''; }
+    else { odaWrap.innerHTML = odaTipleri.map(function(o){
+      var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
+      return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+' onchange="haftaGridYenile()"/> '+o+'</label>';
+    }).join(''); }
+    document.getElementById('field-oda-tipi-display').textContent = mevcutOdalar.join(', ') || 'Seçilmedi';
+    var haftaWrap = document.getElementById('field-hafta');
+    var mevcutHaftalar2 = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    haftaWrap.setAttribute('data-tesis', ad);
+    haftaWrap.setAttribute('data-toplam', tesis.haftaSayi || 52);
+    haftaWrap.setAttribute('data-mevcut', mevcutHaftalar2.join(','));
+    haftaGridYenile();
+  }
+}
+  var tesisAd = document.getElementById('field-tesis').value;
+  var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
+  var blok = tesis && (tesis.bloklar || []).find(function(b){ return b.ad === blokAd; });
+  // Oda tipini otomatik ayarla
   var odaWrap = document.getElementById('field-oda-tipi');
-  var mevcutOdalar = (odaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
-  var odaTipleri = tesis.odaTipleri || [];
-  if (!odaTipleri.length) { odaWrap.innerHTML = '<span style="color:#94a3b8;font-size:12px">Oda tipi tanımlanmamış</span>'; }
-  else { odaWrap.innerHTML = odaTipleri.map(function(o){
-    var chk = mevcutOdalar.indexOf(o) >= 0 ? ' checked' : '';
-    return '<label class="oda-cb"><input type="checkbox" value="'+o+'"'+chk+' onchange="haftaGridYenile()"/> '+o+'</label>';
-  }).join(''); }
-  // Hafta seçenekleri — önce loading göster, sonra dolu haftaları çekip renkli render et
+  var odaDisplay = document.getElementById('field-oda-tipi-display');
+  if (blok && blok.odaTipi) {
+    // Hidden checkboxları ayarla (hafta grid için gerekli)
+    if (!odaWrap.querySelector('input[value="'+blok.odaTipi+'"]')) {
+      odaWrap.innerHTML = '<label class="oda-cb" style="display:none"><input type="checkbox" value="'+blok.odaTipi+'" checked/> '+blok.odaTipi+'</label>';
+    } else {
+      odaWrap.querySelectorAll('input[type="checkbox"]').forEach(function(cb){ cb.checked = cb.value === blok.odaTipi; });
+    }
+    odaDisplay.textContent = blok.odaTipi;
+    odaDisplay.style.color = '#1e293b';
+    odaDisplay.style.fontWeight = '600';
+  } else {
+    odaDisplay.textContent = 'Blok seçince belirlenir';
+    odaDisplay.style.color = '#94a3b8';
+    odaDisplay.style.fontWeight = 'normal';
+  }
+  // Kat dropdown doldur
+  var katSel = document.getElementById('field-kat');
+  var mevcutKat = katSel.getAttribute('data-loaded-value') || '';
+  katSel.innerHTML = '<option value="">Seçiniz...</option>';
+  if (blok && blok.katSayisi) {
+    for (var i = 1; i <= parseInt(blok.katSayisi); i++) {
+      katSel.innerHTML += '<option value="'+i+'"'+(String(i)===mevcutKat?' selected':'')+'>'+i+'. Kat</option>';
+    }
+  }
+  // Hafta grid
   var haftaWrap = document.getElementById('field-hafta');
   var mevcutHaftalar = (haftaWrap.getAttribute('data-loaded-value') || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
-  haftaWrap.setAttribute('data-tesis', ad);
-  haftaWrap.setAttribute('data-toplam', tesis.haftaSayi || 52);
+  haftaWrap.setAttribute('data-tesis', tesisAd);
+  haftaWrap.setAttribute('data-toplam', (tesis && tesis.haftaSayi) || 52);
   haftaWrap.setAttribute('data-mevcut', mevcutHaftalar.join(','));
   haftaGridYenile();
+  fiyatOtomatikHesapla();
+}
+
+function fiyatOtomatikHesapla() {
+  var tesisAd = document.getElementById('field-tesis').value;
+  var blokAd = document.getElementById('field-blok').value;
+  var kat = parseInt(document.getElementById('field-kat').value) || 0;
+  var donem = document.getElementById('field-donem').value;
+  var banner = document.getElementById('liste-fiyat-banner');
+  var goster = document.getElementById('liste-fiyat-goster');
+  var odemeBanner = document.getElementById('odeme-liste-fiyat');
+  if (!blokAd || !kat || !donem) {
+    if (banner) banner.style.display = 'none';
+    if (odemeBanner) odemeBanner.textContent = '—';
+    return;
+  }
+  var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
+  var matris = tesis && tesis.fiyatMatris && tesis.fiyatMatris[blokAd] && tesis.fiyatMatris[blokAd][donem];
+  if (!matris) {
+    if (banner) banner.style.display = 'none';
+    if (odemeBanner) odemeBanner.textContent = 'Fiyat matrisi tanımlanmamış';
+    return;
+  }
+  var fiyat = (parseFloat(matris.baz) || 0) + (kat - 1) * (parseFloat(matris.katFarki) || 0);
+  if (banner) { banner.style.display = ''; goster.textContent = formatPara(fiyat, 'TRY'); }
+  if (odemeBanner) odemeBanner.textContent = formatPara(fiyat, 'TRY');
+  // Satış fiyatını otomatik doldur (kullanıcı değiştirmediyse)
+  var sfEl = document.getElementById('field-satis-fiyati');
+  if (sfEl && !sfEl.getAttribute('data-manual')) sfEl.value = fiyat;
+}
+
+function indirimTalebiOlustur() {
+  var dealTitle = (STATE.deal && STATE.deal.TITLE) || ('Deal #' + STATE.dealId);
+  var musteriAd = '';
+  if (STATE.contact) musteriAd = ((STATE.contact.NAME||'')+' '+(STATE.contact.LAST_NAME||'')).trim();
+  var blok = document.getElementById('field-blok') ? document.getElementById('field-blok').value : '';
+  var kat = document.getElementById('field-kat') ? document.getElementById('field-kat').value : '';
+  var donem = document.getElementById('field-donem') ? document.getElementById('field-donem').value : '';
+  var listeFiyat = document.getElementById('liste-fiyat-goster') ? document.getElementById('liste-fiyat-goster').textContent : '';
+  var satisFiyat = document.getElementById('field-satis-fiyati') ? document.getElementById('field-satis-fiyati').value : '';
+  var aciklama = 'Deal: '+dealTitle+'\nMüşteri: '+musteriAd+'\nBlok: '+blok+' | Kat: '+kat+' | Dönem: '+donem+'\nListe Fiyatı: '+listeFiyat+'\nTeklif Edilen Fiyat: '+formatPara(parseFloat(satisFiyat)||0,'TRY')+'\n\nLütfen özel indirim talebini değlendirin ve onay verin.';
+  BX24.callMethod('tasks.task.add', {
+    fields: {
+      TITLE: '💰 İndirim Talebi: ' + dealTitle,
+      DESCRIPTION: aciklama,
+      PRIORITY: 2
+    }
+  }, function(r) {
+    if (r.error()) { showToast('❌ Task oluşturulamadı: ' + r.error_description(), 'error'); }
+    else { showToast('✅ İndirim talebi task olarak oluşturuldu! (Task #' + (r.data().task ? r.data().task.id : '') + ')', 'success'); }
+  });
 }
 
 function haftaGridYenile() {
@@ -761,7 +957,9 @@ function haftaGridYenile() {
       var dur = haftaDurumu(si);
       var durum = typeof dur === 'object' ? dur.durum : dur;
       var tip = typeof dur === 'object' ? dur.tooltip : '';
-      if (durum === 'dolu') {
+      if (BAKIM_HAFTALARI.indexOf(i) >= 0) {
+        haftaHtml += '<label class="hafta-cb bakim" title="🔧 Bakım/Tadilat Haftası — Satışa Kapalı"><input type="checkbox" value="'+i+'" disabled/> '+i+'</label>';
+      } else if (durum === 'dolu') {
         haftaHtml += '<label class="hafta-cb dolu" title="⛔ '+tip+'"><input type="checkbox" value="'+i+'" disabled/> '+i+'</label>';
       } else if (durum === 'kismi') {
         haftaHtml += '<label class="hafta-cb kismi" title="⚠️ '+tip+'"><input type="checkbox" value="'+i+'"'+chk+'/> '+i+'</label>';
@@ -793,10 +991,13 @@ function haftaGridYenile() {
 
 var ODA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Bitrix24 enum ID <-> label
 var HAFTA_ENUM = { fieldId: null, idToVal: {}, valToId: {} }; // Hafta enum ID <-> label
+var BAKIM_HAFTALARI = [49, 50]; // Bakım/tadilat haftaları - satışa kapalı
 var FIELD_MAP = {
   'field-tesis':'UF_CRM_TESIS_ADI','field-unite':'UF_CRM_UNITE_NO','field-hafta':'UF_CRM_HAFTA_NO',
   'field-oda-tipi':'UF_CRM_ODA_TIPI','field-sehir':'UF_CRM_SEHIR','field-yildiz':'UF_CRM_YILDIZ',
-  'field-mulk-tipi':'UF_CRM_MULK_TIPI','field-sezon':'UF_CRM_SEZON','field-notlar':'UF_CRM_NOTLAR',
+  'field-mulk-tipi':'UF_CRM_MULK_TIPI','field-notlar':'UF_CRM_NOTLAR',
+  'field-blok':'UF_CRM_BLOK','field-kat':'UF_CRM_KAT','field-donem':'UF_CRM_DONEM',
+  'field-odeme-yontemi':'UF_CRM_ODEME_YONTEMI',
   'field-satis-fiyati':'UF_CRM_SATIS_FIYATI','field-pesinat':'UF_CRM_PESINAT',
   'field-taksit':'UF_CRM_TAKSIT','field-faiz':'UF_CRM_FAIZ',
   'field-sozlesme-no':'UF_CRM_SOZLESME_NO','field-tapu-tarihi':'UF_CRM_TAPU_TARIHI','field-tapu-durum':'UF_CRM_TAPU_DURUM'
@@ -826,10 +1027,19 @@ function loadCustomFields(d) {
   if (tesisEl) tesisEl.setAttribute('data-loaded-value', tesisDegeri);
   if (haftaEl) haftaEl.setAttribute('data-loaded-value', haftaStr);
   if (odaEl)   odaEl.setAttribute('data-loaded-value', odaValues);
+  // Yeni alanları da set et
+  var blokEl = document.getElementById('field-blok');
+  var katEl  = document.getElementById('field-kat');
+  if (blokEl) blokEl.setAttribute('data-loaded-value', d['UF_CRM_BLOK'] || '');
+  if (katEl)  katEl.setAttribute('data-loaded-value', d['UF_CRM_KAT'] || '');
+  var donemEl = document.getElementById('field-donem');
+  if (donemEl && d['UF_CRM_DONEM']) donemEl.value = d['UF_CRM_DONEM'];
+  var oYEl = document.getElementById('field-odeme-yontemi');
+  if (oYEl && d['UF_CRM_ODEME_YONTEMI']) oYEl.value = d['UF_CRM_ODEME_YONTEMI'];
   tesisleriYukle();
   // Diğer alanlar
   Object.keys(FIELD_MAP).forEach(function(id){
-    if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz' || id === 'field-mulk-tipi' || id === 'field-sezon' || id === 'field-taksit' || id === 'field-tapu-durum') return;
+    if (id === 'field-tesis' || id === 'field-hafta' || id === 'field-oda-tipi' || id === 'field-sehir' || id === 'field-yildiz' || id === 'field-mulk-tipi' || id === 'field-taksit' || id === 'field-tapu-durum' || id === 'field-blok' || id === 'field-kat' || id === 'field-donem' || id === 'field-odeme-yontemi') return;
     var v = d[FIELD_MAP[id]];
     // UF_CRM_NOTLAR içinde config JSON varsa forma yazma
     if (id === 'field-notlar' && v && v.indexOf('{"tesisler"') === 0) return;
@@ -997,12 +1207,29 @@ function _kaydetYap() {
   });
   // Dinamik özellikler JSON olarak kaydet
   fields['UF_CRM_OZELLIKLER'] = JSON.stringify(ozelliklerOku());
+  // Yeni alanlar
+  var blokEl2 = document.getElementById('field-blok'); if(blokEl2) fields['UF_CRM_BLOK'] = blokEl2.value;
+  var katEl2  = document.getElementById('field-kat');  if(katEl2)  fields['UF_CRM_KAT']  = katEl2.value;
+  var donemEl2 = document.getElementById('field-donem'); if(donemEl2) fields['UF_CRM_DONEM'] = donemEl2.value;
+  var oyEl2 = document.getElementById('field-odeme-yontemi'); if(oyEl2) fields['UF_CRM_ODEME_YONTEMI'] = oyEl2.value;
   // Ödeme planı da kaydet
   var odeme = STATE.odeme || {};
   if(odeme.sf) fields['UF_CRM_SATIS_FIYATI']=String(odeme.sf);
   if(odeme.p!=null) fields['UF_CRM_PESINAT']=String(odeme.p);
   if(odeme.t!=null) fields['UF_CRM_TAKSIT']=String(odeme.t);
   if(odeme.f!=null) fields['UF_CRM_FAIZ']=String(odeme.f);
+  // Müşteri bilgilerini contact'a kaydet
+  if (STATE.deal && STATE.deal.CONTACT_ID && parseInt(STATE.deal.CONTACT_ID) > 0) {
+    var cFields = {};
+    var mIsim = document.getElementById('field-m-isim'); if(mIsim && mIsim.value) cFields.NAME = mIsim.value;
+    var mSoy  = document.getElementById('field-m-soyisim'); if(mSoy && mSoy.value) cFields.LAST_NAME = mSoy.value;
+    var mTel  = document.getElementById('field-m-tel'); if(mTel && mTel.value) cFields.PHONE = [{VALUE: mTel.value, VALUE_TYPE: 'WORK'}];
+    var mEmail= document.getElementById('field-m-email'); if(mEmail && mEmail.value) cFields.EMAIL = [{VALUE: mEmail.value, VALUE_TYPE: 'WORK'}];
+    var mAdres= document.getElementById('field-m-adres'); if(mAdres && mAdres.value) cFields.ADDRESS = mAdres.value;
+    if (Object.keys(cFields).length) {
+      BX24.callMethod('crm.contact.update', {id: STATE.deal.CONTACT_ID, fields: cFields}, function(){});
+    }
+  }
   setSaveStatus('Kaydediliyor...');
   BX24.callMethod('crm.deal.update',{id:STATE.dealId,fields:fields},function(res){
     if(res.error()){
@@ -1191,6 +1418,7 @@ function adminTesisleriYukle() {
       tesisleriYukle();
       // Form varsayılan görünümü
       afOdaRender([]);
+      afBlokRender([]);
       aozRender({});
     });
   });
@@ -1226,6 +1454,8 @@ function afOdaEkle() {
   liste.appendChild(label);
   document.getElementById('af-oda-yeni').value = '';
   afKapasiteSatirGuncelle();
+  // Blok oda dropdown'ını güncelle
+  afBlokRender(AF_BLOKLAR);
   // Bitrix24 enum listesine de ekle
   if (ODA_ENUM.fieldId && !ODA_ENUM.valToId[yeni]) {
     BX24.callMethod('crm.deal.userfield.update', {
@@ -1366,6 +1596,8 @@ function _afFormDoldur(t) {
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
   afOdaRender(t.odaTipleri || [], t.odaKapasite || {});
   aozRender(t.ozellikler || {});
+  // Bloklar ve fiyat matrisi
+  setTimeout(function(){ afBlokRender(t.bloklar || []); afFiyatMatrisRender(t.fiyatMatris || {}); }, 50);
 }
 function adminFormSifirla() {
   document.getElementById('af-duzenle-id').value = '';
@@ -1378,6 +1610,7 @@ function adminFormSifirla() {
   afOdaRender([]);
   var ks = document.getElementById('af-kapasite-satir'); if(ks) ks.innerHTML='';
   aozRender({});
+  afBlokRender([]);
   document.getElementById('af-kart').scrollIntoView({behavior:'smooth'});
 }
 function adminTesisDuzenle(id) {
@@ -1402,7 +1635,9 @@ function adminTesisKaydet() {
     haftaSayi: parseInt(document.getElementById('af-hafta').value) || 52,
     odaTipleri: odaTipleri,
     odaKapasite: afKapasiteOku(),
-    ozellikler: aozOku()
+    ozellikler: aozOku(),
+    bloklar: afBlokOku(),
+    fiyatMatris: afFiyatMatrisOku()
   };
   var duzenleId = document.getElementById('af-duzenle-id').value;
   if (duzenleId) {
@@ -1456,6 +1691,7 @@ function adminListeyiRender() {
         '<div class="ti-name">'+t.ad+' '+y+'</div>'+
         '<div class="ti-meta">'+t.sehir+(t.odaTipleri&&t.odaTipleri.length?' · '+t.odaTipleri.map(function(o){ var k=(t.odaKapasite||{})[o]; return o+(k?' ('+k+')':''); }).join(', '):'')+'</div>'+
         (ozList?'<div style="font-size:11px;color:#64748b;margin-top:2px">'+ozList+'</div>':'')+ 
+        ((t.bloklar&&t.bloklar.length)?'<div style="font-size:11px;color:#2563eb;margin-top:2px">🏗️ '+t.bloklar.map(function(b){return b.ad+' → '+b.odaTipi+' ('+b.katSayisi+' kat)';}).join(' | ')+'</div>':'')+ 
       '</div>'+
       '<button class="btn btn-secondary btn-sm" style="margin-right:4px" onclick="adminTesisDuzenle('+t.id+')">Düzenle</button>'+
       '<button class="btn btn-danger btn-sm" onclick="adminTesisSil('+t.id+')">Sil</button>'+
@@ -1488,6 +1724,10 @@ function ufAlanlariniOlustur() {
     { FIELD_NAME:'UF_CRM_TESIS_ADI',    EDIT_FORM_LABEL:{tr:'Tesis Adı'},             USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SEHIR',        EDIT_FORM_LABEL:{tr:'Şehir'},                 USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_UNITE_NO',     EDIT_FORM_LABEL:{tr:'Ünite No'},              USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_BLOK',         EDIT_FORM_LABEL:{tr:'Blok'},                  USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_KAT',          EDIT_FORM_LABEL:{tr:'Kat'},                   USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_DONEM',        EDIT_FORM_LABEL:{tr:'Kullanım Dönemi'},        USER_TYPE_ID:'string'  },
+    { FIELD_NAME:'UF_CRM_ODEME_YONTEMI',EDIT_FORM_LABEL:{tr:'Ödeme Yöntemi'},          USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_NOTLAR',       EDIT_FORM_LABEL:{tr:'Notlar'},                USER_TYPE_ID:'string'  },
     { FIELD_NAME:'UF_CRM_SATIS_FIYATI', EDIT_FORM_LABEL:{tr:'Satış Fiyatı'},          USER_TYPE_ID:'double'  },
     { FIELD_NAME:'UF_CRM_PESINAT',      EDIT_FORM_LABEL:{tr:'Peşinat'},               USER_TYPE_ID:'double'  },
@@ -1539,6 +1779,84 @@ function adminSifreDegistir() {
     document.getElementById('admin-yeni-sifre').value='';
     document.getElementById('admin-yeni-sifre2').value='';
   });
+}
+
+// ======= BLOK YÖNETİMİ =======
+var AF_BLOKLAR = [];
+
+function afBlokRender(bloklar) {
+  AF_BLOKLAR = bloklar ? bloklar.slice() : [];
+  var liste = document.getElementById('af-blok-liste');
+  if (!liste) return;
+  // Blok oda seçim dropdown'ını da güncelle
+  var odaSel = document.getElementById('af-blok-oda');
+  if (odaSel) {
+    var seciliOdalar = afOdaOku();
+    odaSel.innerHTML = '<option value="">Oda tipi seç...</option>' +
+      seciliOdalar.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
+  }
+  if (!AF_BLOKLAR.length) { liste.innerHTML = '<p style="color:#94a3b8;font-size:12px">İptal Blok eklenmedi</p>'; }
+  else {
+    liste.innerHTML = AF_BLOKLAR.map(function(b, i){
+      return '<div class="blok-item"><span style="font-weight:600;min-width:80px">'+b.ad+'</span><span style="color:#2563eb;min-width:50px">'+b.odaTipi+'</span><span style="color:#64748b">'+b.katSayisi+' kat</span><button onclick="afBlokSil('+i+')" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px">×</button></div>';
+    }).join('');
+  }
+  afFiyatMatrisRender();
+}
+function afBlokEkle() {
+  var ad  = document.getElementById('af-blok-ad').value.trim();
+  var oda = document.getElementById('af-blok-oda').value;
+  var kat = parseInt(document.getElementById('af-blok-kat').value) || 0;
+  if (!ad || !oda || !kat) { showToast('Blok adı, oda tipi ve kat sayısı zorunlu!', 'error'); return; }
+  AF_BLOKLAR.push({ad: ad, odaTipi: oda, katSayisi: kat});
+  afBlokRender(AF_BLOKLAR);
+  document.getElementById('af-blok-ad').value = '';
+  document.getElementById('af-blok-kat').value = '';
+}
+function afBlokSil(i) {
+  AF_BLOKLAR.splice(i, 1);
+  afBlokRender(AF_BLOKLAR);
+}
+function afBlokOku() {
+  return AF_BLOKLAR.slice();
+}
+
+// ======= FİYAT MATRİSİ =======
+var DONEMLER = ['Yaz', 'Bahar', 'Kış'];
+
+function afFiyatMatrisRender(mevcutMatris) {
+  var el = document.getElementById('af-fiyat-matris');
+  if (!el) return;
+  if (!AF_BLOKLAR.length) { el.innerHTML = '<p style="color:#94a3b8;font-size:12px">Önce blok ekleyin...</p>'; return; }
+  var html = '';
+  AF_BLOKLAR.forEach(function(blok){
+    html += '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">'+blok.ad+' ('+blok.odaTipi+', '+blok.katSayisi+' kat)</div>';
+    html += '<table class="fiyat-matris-table"><thead><tr><th>Dönem</th><th>Baz Fiyat (₺)</th><th>Kat Artışı (₺/kat)</th></tr></thead><tbody>';
+    DONEMLER.forEach(function(d){
+      var m = (mevcutMatris && mevcutMatris[blok.ad] && mevcutMatris[blok.ad][d]) || {};
+      html += '<tr><td style="font-weight:600;color:#475569">'+d+'</td>';
+      html += '<td><input type="number" data-blok="'+blok.ad+'" data-donem="'+d+'" data-tip="baz" placeholder="0" value="'+(m.baz||'')+'"/></td>';
+      html += '<td><input type="number" data-blok="'+blok.ad+'" data-donem="'+d+'" data-tip="katFarki" placeholder="0" value="'+(m.katFarki||'')+'"/></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+  el.innerHTML = html;
+}
+function afFiyatMatrisOku() {
+  var el = document.getElementById('af-fiyat-matris');
+  if (!el) return {};
+  var matris = {};
+  el.querySelectorAll('input[data-blok]').forEach(function(inp){
+    var blok = inp.getAttribute('data-blok');
+    var donem = inp.getAttribute('data-donem');
+    var tip = inp.getAttribute('data-tip');
+    var val = parseFloat(inp.value) || 0;
+    if (!matris[blok]) matris[blok] = {};
+    if (!matris[blok][donem]) matris[blok][donem] = {};
+    matris[blok][donem][tip] = val;
+  });
+  return matris;
 }
 </script>
 </body>
