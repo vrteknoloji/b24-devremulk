@@ -461,8 +461,15 @@ textarea{resize:vertical;font-family:inherit}
             <div class="m-fg"><label>Yıldız</label><select id="af-yildiz"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
             <div class="m-fg"><label>Hafta Sayısı</label><input id="af-hafta" type="number" value="52"/></div>
           </div>
+          <div class="m-fg" style="margin-bottom:8px">
+            <label>Para Birimi</label>
+            <select id="af-para" style="width:180px;border:1px solid #e2e8f0;border-radius:5px;padding:5px 8px;font-size:13px">
+              <option value="TRY">TRY — Türk Lirası</option>
+            </select>
+            <span id="af-para-yukleniyor" style="font-size:11px;color:#94a3b8;margin-left:8px"></span>
+          </div>
           <div class="m-fg" style="margin-bottom:12px">
-            <label>Üniteler <span style="font-weight:400;color:#94a3b8;font-size:11px">— her ünite için blok, kat, oda no, oda tipi ve fiyat girin</span></label>
+            <label>Üniteler <span style="font-weight:400;color:#94a3b8;font-size:11px">— her ünite için blok, kat, oda no, oda tipi ve sezonluk fiyatlar</span></label>
             <div id="af-unite-container"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px">
@@ -803,6 +810,7 @@ function fiyatOtomatikHesapla() {
   var tesisAd = document.getElementById('field-tesis').value;
   var blokAd  = document.getElementById('field-blok').value;
   var odaNo   = document.getElementById('field-unite').value;
+  var donem   = document.getElementById('field-donem') ? document.getElementById('field-donem').value : '';
   var banner  = document.getElementById('liste-fiyat-banner');
   var goster  = document.getElementById('liste-fiyat-goster');
   var odemeBanner = document.getElementById('odeme-liste-fiyat');
@@ -813,14 +821,34 @@ function fiyatOtomatikHesapla() {
   }
   var tesis = TESISLER.find(function(t){ return t.ad === tesisAd; });
   var unite = (tesis && tesis.uniteler || []).find(function(u){ return u.blok===blokAd && u.odaNo===odaNo; });
-  if (!unite || !unite.fiyat) {
+  var para  = (tesis && tesis.paraBirimi) || 'TRY';
+  if (!unite) {
     if (banner) banner.style.display = 'none';
     if (odemeBanner) odemeBanner.textContent = 'Fiyat tanımlanmamış';
     return;
   }
-  var fiyat = parseFloat(unite.fiyat);
-  if (banner) { banner.style.display = ''; goster.textContent = formatPara(fiyat, 'TRY'); }
-  if (odemeBanner) odemeBanner.textContent = formatPara(fiyat, 'TRY');
+  // Sezon eşleşmesi: Yaz/Bahar/Kış (Kış key'i "Kis" da olabilir)
+  var fiyat = null;
+  var f = unite.fiyatlar || {};
+  var SEZON_MAP = {
+    'Yaz': f.Yaz || f.yaz,
+    'Bahar': f.Bahar || f.bahar,
+    'Kış': f.Kis || f.Kış || f.kis
+  };
+  if (donem && SEZON_MAP[donem] != null) {
+    fiyat = parseFloat(SEZON_MAP[donem]);
+  } else {
+    // Dönem seçilmemişse veya eşleşmezse en düşük değil, ilk dolu fiyatı göster
+    var ilk = f.Yaz || f.Bahar || f.Kis || f.Kış || unite.fiyat;
+    if (ilk) fiyat = parseFloat(ilk);
+  }
+  if (!fiyat) {
+    if (banner) banner.style.display = 'none';
+    if (odemeBanner) odemeBanner.textContent = 'Fiyat tanımlanmamış';
+    return;
+  }
+  if (banner) { banner.style.display = ''; goster.textContent = formatPara(fiyat, para); }
+  if (odemeBanner) odemeBanner.textContent = formatPara(fiyat, para);
   var sfEl = document.getElementById('field-satis-fiyati');
   if (sfEl && !sfEl.getAttribute('data-manual')) sfEl.value = fiyat;
 }
@@ -1393,28 +1421,61 @@ function adminTesisleriYukle() {
     adminListeyiRender();
     tesisleriYukle();
     afUniteRender([]);
+    afParaBirimleriniYukle();
   });
 }
+// ---- Para birimi yükleme ----
+var AF_PARA_BIRIMLERI = [{ID:'TRY',FULL_NAME:'Türk Lirası'}];
+function afParaBirimleriniYukle() {
+  var sel = document.getElementById('af-para');
+  var lbl = document.getElementById('af-para-yukleniyor');
+  if (!sel) return;
+  if (lbl) lbl.textContent = 'yükleniyor...';
+  BX24.callMethod('currency.list', {}, function(r) {
+    if (!r.error() && r.data()) {
+      var liste = r.data();
+      if (!Array.isArray(liste)) {
+        // object map → array
+        liste = Object.keys(liste).map(function(k){ return liste[k]; });
+      }
+      AF_PARA_BIRIMLERI = liste.filter(function(c){ return c.ACTIVE === 'Y' || c.ACTIVE === true; });
+      if (!AF_PARA_BIRIMLERI.length) AF_PARA_BIRIMLERI = [{ID:'TRY',FULL_NAME:'Türk Lirası'},{ID:'USD',FULL_NAME:'US Dollar'},{ID:'EUR',FULL_NAME:'Euro'}];
+    }
+    var mevcut = sel.value || 'TRY';
+    sel.innerHTML = AF_PARA_BIRIMLERI.map(function(c){
+      return '<option value="'+c.ID+'"'+(c.ID===mevcut?' selected':'')+'>'+c.ID+(c.FULL_NAME?' — '+c.FULL_NAME:'')+'</option>';
+    }).join('');
+    if (lbl) lbl.textContent = '';
+  });
+}
+
 // ---- Ünite Tablosu (Admin Form) ----
 var AF_UNITELER = [];
+var AF_SEZONLAR = ['Yaz','Bahar','Kış'];
 
 function afUniteRender(uniteler) {
   AF_UNITELER = uniteler ? uniteler.slice() : [];
   var el = document.getElementById('af-unite-container');
   if (!el) return;
-  var html = '<table class="daire-table">'
+  var paraSel = document.getElementById('af-para');
+  var para = paraSel ? (paraSel.value || 'TRY') : 'TRY';
+  var html = '<table class="daire-table" style="font-size:11px">'
     + '<thead><tr>'
-    + '<th>Blok</th><th style="width:50px">Kat</th>'
-    + '<th style="width:80px">Oda No</th><th style="width:80px">Oda Tipi</th>'
-    + '<th>Fiyat (₺)</th><th style="width:32px"></th>'
+    + '<th>Blok</th><th style="width:45px">Kat</th>'
+    + '<th style="width:75px">Oda No</th><th style="width:70px">Oda Tipi</th>'
+    + '<th>Yaz ('+para+')</th><th>Bahar ('+para+')</th><th>Kış ('+para+')</th>'
+    + '<th style="width:28px"></th>'
     + '</tr></thead><tbody>';
   AF_UNITELER.forEach(function(u, i) {
+    var fiyatlar = u.fiyatlar || {};
     html += '<tr>'
-      + '<td><input type="text" value="'+u.blok+'" onchange="AF_UNITELER['+i+'].blok=this.value"/></td>'
+      + '<td><input type="text" value="'+e(u.blok)+'" onchange="AF_UNITELER['+i+'].blok=this.value"/></td>'
       + '<td><input type="number" value="'+u.kat+'" min="1" onchange="AF_UNITELER['+i+'].kat=parseInt(this.value)||1"/></td>'
-      + '<td><input type="text" value="'+u.odaNo+'" onchange="AF_UNITELER['+i+'].odaNo=this.value"/></td>'
-      + '<td><input type="text" value="'+u.odaTipi+'" placeholder="2+1" onchange="AF_UNITELER['+i+'].odaTipi=this.value"/></td>'
-      + '<td><input type="number" value="'+u.fiyat+'" placeholder="0" onchange="AF_UNITELER['+i+'].fiyat=parseFloat(this.value)||0"/></td>'
+      + '<td><input type="text" value="'+e(u.odaNo)+'" onchange="AF_UNITELER['+i+'].odaNo=this.value"/></td>'
+      + '<td><input type="text" value="'+e(u.odaTipi)+'" placeholder="2+1" onchange="AF_UNITELER['+i+'].odaTipi=this.value"/></td>'
+      + '<td><input type="number" value="'+(fiyatlar.Yaz||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Yaz=parseFloat(this.value)||0"/></td>'
+      + '<td><input type="number" value="'+(fiyatlar.Bahar||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Bahar=parseFloat(this.value)||0"/></td>'
+      + '<td><input type="number" value="'+(fiyatlar.Kis||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Kis=parseFloat(this.value)||0"/></td>'
       + '<td><button onclick="afUniteSil('+i+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:15px;padding:0">×</button></td>'
       + '</tr>';
   });
@@ -1424,20 +1485,25 @@ function afUniteRender(uniteler) {
     + '<td><input type="number" id="af-n-kat" placeholder="1" min="1"/></td>'
     + '<td><input type="text" id="af-n-odano" placeholder="C-101"/></td>'
     + '<td><input type="text" id="af-n-odatipi" placeholder="2+1"/></td>'
-    + '<td><input type="number" id="af-n-fiyat" placeholder="0"/></td>'
-    + '<td><button onclick="afUniteEkle()" style="background:#16a34a;border:none;color:#fff;cursor:pointer;border-radius:4px;padding:2px 8px;font-size:15px;line-height:1.4">+</button></td>'
+    + '<td><input type="number" id="af-n-yaz" placeholder="0"/></td>'
+    + '<td><input type="number" id="af-n-bahar" placeholder="0"/></td>'
+    + '<td><input type="number" id="af-n-kis" placeholder="0"/></td>'
+    + '<td><button onclick="afUniteEkle()" style="background:#16a34a;border:none;color:#fff;cursor:pointer;border-radius:4px;padding:2px 7px;font-size:15px;line-height:1.4">+</button></td>'
     + '</tr>';
   html += '</tbody></table>';
   el.innerHTML = html;
 }
+function e(s){ return String(s||'').replace(/"/g,'&quot;'); }
 function afUniteEkle() {
   var blok   = document.getElementById('af-n-blok').value.trim();
   var kat    = parseInt(document.getElementById('af-n-kat').value) || 1;
   var odaNo  = document.getElementById('af-n-odano').value.trim();
   var odaTipi= document.getElementById('af-n-odatipi').value.trim();
-  var fiyat  = parseFloat(document.getElementById('af-n-fiyat').value) || 0;
+  var yaz    = parseFloat(document.getElementById('af-n-yaz').value) || 0;
+  var bahar  = parseFloat(document.getElementById('af-n-bahar').value) || 0;
+  var kis    = parseFloat(document.getElementById('af-n-kis').value) || 0;
   if (!blok || !odaNo) { showToast('Blok ve Oda No zorunlu!', 'error'); return; }
-  AF_UNITELER.push({blok:blok, kat:kat, odaNo:odaNo, odaTipi:odaTipi, fiyat:fiyat});
+  AF_UNITELER.push({blok:blok, kat:kat, odaNo:odaNo, odaTipi:odaTipi, fiyatlar:{Yaz:yaz, Bahar:bahar, Kis:kis}});
   afUniteRender(AF_UNITELER);
 }
 function afUniteSil(idx) {
@@ -1480,6 +1546,9 @@ function _afFormDoldur(t) {
   document.getElementById('af-sehir').value = t.sehir || '';
   document.getElementById('af-yildiz').value = t.yildiz || '';
   document.getElementById('af-hafta').value = t.haftaSayi || 52;
+  // Para birimi
+  var paraSel = document.getElementById('af-para');
+  if (paraSel && t.paraBirimi) paraSel.value = t.paraBirimi;
   setTimeout(function(){ afUniteRender(t.uniteler || []); }, 50);
 }
 function adminFormSifirla() {
@@ -1508,10 +1577,12 @@ function adminTesisKaydet() {
   if (!ad || !sehir) { showToast('Tesis adı ve şehir zorunlu!', 'error'); return; }
   var uniteler = afUniteOku();
   if (!uniteler.length) { showToast('En az bir ünite girmelisiniz!', 'error'); return; }
+  var paraSel = document.getElementById('af-para');
   var meta = {
     sehir: sehir,
     yildiz: document.getElementById('af-yildiz').value,
     haftaSayi: parseInt(document.getElementById('af-hafta').value) || 52,
+    paraBirimi: paraSel ? paraSel.value : 'TRY',
     uniteler: uniteler
   };
   var duzenleId = document.getElementById('af-duzenle-id').value;
