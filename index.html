@@ -892,14 +892,17 @@ function indirimTalebiOlustur() {
   var dealTitle = (STATE.deal && STATE.deal.TITLE) || ('Deal #' + STATE.dealId);
   var musteriAd = '';
   if (STATE.contact) musteriAd = ((STATE.contact.NAME||'')+' '+(STATE.contact.LAST_NAME||'')).trim();
-  var tesis   = document.getElementById('field-tesis') ? document.getElementById('field-tesis').value : '';
-  var blok    = document.getElementById('field-blok') ? document.getElementById('field-blok').value : '';
-  var unite   = document.getElementById('field-unite') ? document.getElementById('field-unite').value : '';
-  var donem   = document.getElementById('field-donem') ? document.getElementById('field-donem').value : '';
+  var tesis      = document.getElementById('field-tesis')  ? document.getElementById('field-tesis').value  : '';
+  var blok       = document.getElementById('field-blok')   ? document.getElementById('field-blok').value   : '';
+  var unite      = document.getElementById('field-unite')  ? document.getElementById('field-unite').value  : '';
+  var donem      = document.getElementById('field-donem')  ? document.getElementById('field-donem').value  : '';
   var listeFiyat = document.getElementById('odeme-liste-fiyat') ? document.getElementById('odeme-liste-fiyat').textContent : '—';
   var satisFiyat = document.getElementById('field-satis-fiyati') ? document.getElementById('field-satis-fiyati').value : '';
   if (!satisFiyat) { showToast('Lütfen önce teklif edilen satış fiyatını girin!', 'error'); return; }
+
   var aciklama = [
+    '💰 İNDİRİM TALEBİ',
+    '──────────────────',
     'Deal: ' + dealTitle,
     'Müşteri: ' + (musteriAd || '—'),
     'Tesis: ' + (tesis || '—') + ' | Blok: ' + (blok || '—') + ' | Ünite: ' + (unite || '—'),
@@ -909,20 +912,40 @@ function indirimTalebiOlustur() {
     '',
     'Lütfen özel indirim talebini değerlendirin ve onay verin.'
   ].join('\n');
-  BX24.callMethod('tasks.task.add', {
-    fields: {
+
+  // Önce mevcut kullanıcıyı al → RESPONSIBLE_ID zorunlu
+  BX24.callMethod('user.current', {}, function(ur) {
+    var userId = ur.data() ? ur.data().ID : null;
+
+    var taskFields = {
       TITLE: '💰 İndirim Talebi: ' + dealTitle,
       DESCRIPTION: aciklama,
       PRIORITY: '1',
-      GROUP_ID: 0
-    }
-  }, function(r) {
-    if (r.error()) {
-      showToast('❌ Task oluşturulamadı: ' + (r.error_description ? r.error_description() : r.error()), 'error');
-    } else {
-      var taskId = r.data() && r.data().task ? r.data().task.id : (r.data() ? r.data().id : '');
-      showToast('✅ İndirim talebi oluşturuldu!' + (taskId ? ' (Task #'+taskId+')' : ''), 'success');
-    }
+      UF_CRM_TASK: ['D_' + STATE.dealId]   // deal'e bağla
+    };
+    if (userId) taskFields.RESPONSIBLE_ID = userId;
+
+    BX24.callMethod('tasks.task.add', { fields: taskFields }, function(r) {
+      if (!r.error()) {
+        var taskId = r.data() && r.data().task ? r.data().task.id : (r.data() ? r.data().id : '');
+        showToast('✅ İndirim talebi task olarak oluşturuldu!' + (taskId ? ' (Task #'+taskId+')' : ''), 'success');
+        return;
+      }
+      // Task scope yoksa CRM timeline'a yorum olarak kaydet (fallback)
+      BX24.callMethod('crm.timeline.comment.add', {
+        fields: {
+          ENTITY_ID: STATE.dealId,
+          ENTITY_TYPE: 'deal',
+          COMMENT: aciklama
+        }
+      }, function(cr) {
+        if (!cr.error()) {
+          showToast('✅ İndirim talebi CRM notuna kaydedildi! (Task izni için yönetici ile görüşün)', 'success');
+        } else {
+          showToast('❌ Talep gönderilemedi: ' + (cr.error_description ? cr.error_description() : cr.error()), 'error');
+        }
+      });
+    });
   });
 }
 
