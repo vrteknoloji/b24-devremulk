@@ -299,8 +299,8 @@ textarea{resize:vertical;font-family:inherit}
           </div>
         </div>
         <div class="card">
-          <h3 class="card-title">🏊 Tesis Özellikleri</h3>
-          <div class="checkbox-group" id="tesis-ozellik-container">
+          <h3 class="card-title">🏊 Tesis Özellikleri &amp; Üniteler</h3>
+          <div id="tesis-ozellik-container">
             <p style="color:#94a3b8;font-size:12px">Önce tesis seçin...</p>
           </div>
         </div>
@@ -698,23 +698,56 @@ function tesisleriYukle() {
   });
 }
 
-function ozelliklerRender(tesisOzList, seciliList) {
-  // tesisOzList: tesisin tanımlı özellikleri (array of string veya eski obje)
-  var ozAdlar;
-  if (Array.isArray(tesisOzList)) {
-    ozAdlar = tesisOzList;
-  } else {
+function ozelliklerRender(tesis, seciliList) {
+  var con = document.getElementById('tesis-ozellik-container');
+  if (!con) return;
+  var html = '';
+
+  // Ünite özeti — blok bazlı grupla
+  var uniteler = tesis.uniteler || [];
+  if (uniteler.length) {
+    var blokMap = {};
+    uniteler.forEach(function(u) {
+      if (!blokMap[u.blok]) blokMap[u.blok] = [];
+      blokMap[u.blok].push(u);
+    });
+    html += '<div style="margin-bottom:10px">';
+    html += '<div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:6px">🏗️ Ünite Listesi</div>';
+    Object.keys(blokMap).forEach(function(blok) {
+      html += '<div style="margin-bottom:6px">';
+      html += '<span style="font-size:12px;font-weight:600;color:#2563eb">'+blok+'</span> ';
+      html += '<span style="font-size:11px;color:#64748b">('+blokMap[blok].length+' ünite)</span>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">';
+      blokMap[blok].forEach(function(u) {
+        var para = tesis.paraBirimi || 'TRY';
+        var fYaz = (u.fiyatlar && u.fiyatlar.Yaz) ? formatPara(u.fiyatlar.Yaz, para) : '—';
+        html += '<span style="font-size:11px;padding:2px 7px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;color:#334155">'
+          + u.odaNo + ' · ' + u.odaTipi + ' · ' + u.kat + '.kat'
+          + '<span style="color:#16a34a;margin-left:4px">'+fYaz+'</span>'
+          + '</span>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Tesis özellikleri (eski model uyumu)
+  var ozAdlar = [];
+  if (Array.isArray(tesis.ozellikler)) ozAdlar = tesis.ozellikler;
+  else if (tesis.ozellikler && typeof tesis.ozellikler === 'object') {
     var eskiMap2 = {deniz:'Denize Sıfır',havuz:'Havuz',spa:'SPA',cocuk:'Çocuk Kulübü',restoran:'Restoran',otopark:'Otopark',wifi:'Wi-Fi',klima:'Klima'};
-    ozAdlar = Object.keys(tesisOzList).filter(function(k){return tesisOzList[k];}).map(function(k){return eskiMap2[k]||k;});
+    ozAdlar = Object.keys(tesis.ozellikler).filter(function(k){return tesis.ozellikler[k];}).map(function(k){return eskiMap2[k]||k;});
   }
-  if (!ozAdlar.length) { 
-    document.getElementById('tesis-ozellik-container').innerHTML='<p style="color:#94a3b8;font-size:12px">Bu tesis için özellik tanımlı değil.</p>';
-    return;
+  if (ozAdlar.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:6px">✨ Tesis Özellikleri</div>';
+    html += '<div class="checkbox-group">' + ozAdlar.map(function(oz, i){
+      var secili = (seciliList||[]).indexOf(oz) > -1;
+      return '<label class="checkbox-label"><input type="checkbox" id="foz-'+i+'"'+(secili?' checked':'')+'/> '+oz+'</label>';
+    }).join('') + '</div>';
   }
-  document.getElementById('tesis-ozellik-container').innerHTML = ozAdlar.map(function(oz, i){
-    var secili = seciliList.indexOf(oz) > -1;
-    return '<label class="checkbox-label"><input type="checkbox" id="foz-'+i+'"'+(secili?' checked':'')+'/> '+oz+'</label>';
-  }).join('');
+
+  if (!html) html = '<p style="color:#94a3b8;font-size:12px">Bu tesis için bilgi tanımlı değil.</p>';
+  con.innerHTML = html;
 }
 function ozelliklerOku() {
   var con = document.getElementById('tesis-ozellik-container');
@@ -739,6 +772,8 @@ function tesisSecildi(ad) {
   }
   document.getElementById('field-sehir').value = tesis.sehir;
   document.getElementById('field-yildiz').value = tesis.yildiz ? tesis.yildiz + ' ⭐' : '';
+  // Mülk detayı sekmesi — tesis bilgilerini göster
+  ozelliklerRender(tesis, STATE.seciliOzellikler || []);
   // Blokları uniteler'den çek (benzersiz blok adları)
   var blokSel = document.getElementById('field-blok');
   var mevcutBlok = blokSel.getAttribute('data-loaded-value') || '';
@@ -857,21 +892,37 @@ function indirimTalebiOlustur() {
   var dealTitle = (STATE.deal && STATE.deal.TITLE) || ('Deal #' + STATE.dealId);
   var musteriAd = '';
   if (STATE.contact) musteriAd = ((STATE.contact.NAME||'')+' '+(STATE.contact.LAST_NAME||'')).trim();
-  var blok = document.getElementById('field-blok') ? document.getElementById('field-blok').value : '';
-  var kat = document.getElementById('field-kat') ? document.getElementById('field-kat').value : '';
-  var donem = document.getElementById('field-donem') ? document.getElementById('field-donem').value : '';
-  var listeFiyat = document.getElementById('liste-fiyat-goster') ? document.getElementById('liste-fiyat-goster').textContent : '';
+  var tesis   = document.getElementById('field-tesis') ? document.getElementById('field-tesis').value : '';
+  var blok    = document.getElementById('field-blok') ? document.getElementById('field-blok').value : '';
+  var unite   = document.getElementById('field-unite') ? document.getElementById('field-unite').value : '';
+  var donem   = document.getElementById('field-donem') ? document.getElementById('field-donem').value : '';
+  var listeFiyat = document.getElementById('odeme-liste-fiyat') ? document.getElementById('odeme-liste-fiyat').textContent : '—';
   var satisFiyat = document.getElementById('field-satis-fiyati') ? document.getElementById('field-satis-fiyati').value : '';
-  var aciklama = 'Deal: '+dealTitle+'\nMüşteri: '+musteriAd+'\nBlok: '+blok+' | Kat: '+kat+' | Dönem: '+donem+'\nListe Fiyatı: '+listeFiyat+'\nTeklif Edilen Fiyat: '+formatPara(parseFloat(satisFiyat)||0,'TRY')+'\n\nLütfen özel indirim talebini değlendirin ve onay verin.';
+  if (!satisFiyat) { showToast('Lütfen önce teklif edilen satış fiyatını girin!', 'error'); return; }
+  var aciklama = [
+    'Deal: ' + dealTitle,
+    'Müşteri: ' + (musteriAd || '—'),
+    'Tesis: ' + (tesis || '—') + ' | Blok: ' + (blok || '—') + ' | Ünite: ' + (unite || '—'),
+    'Dönem: ' + (donem || '—'),
+    'Liste Fiyatı: ' + listeFiyat,
+    'Talep Edilen Fiyat: ' + formatPara(parseFloat(satisFiyat)||0, 'TRY'),
+    '',
+    'Lütfen özel indirim talebini değerlendirin ve onay verin.'
+  ].join('\n');
   BX24.callMethod('tasks.task.add', {
     fields: {
       TITLE: '💰 İndirim Talebi: ' + dealTitle,
       DESCRIPTION: aciklama,
-      PRIORITY: 2
+      PRIORITY: '1',
+      GROUP_ID: 0
     }
   }, function(r) {
-    if (r.error()) { showToast('❌ Task oluşturulamadı: ' + r.error_description(), 'error'); }
-    else { showToast('✅ İndirim talebi task olarak oluşturuldu! (Task #' + (r.data().task ? r.data().task.id : '') + ')', 'success'); }
+    if (r.error()) {
+      showToast('❌ Task oluşturulamadı: ' + (r.error_description ? r.error_description() : r.error()), 'error');
+    } else {
+      var taskId = r.data() && r.data().task ? r.data().task.id : (r.data() ? r.data().id : '');
+      showToast('✅ İndirim talebi oluşturuldu!' + (taskId ? ' (Task #'+taskId+')' : ''), 'success');
+    }
   });
 }
 
