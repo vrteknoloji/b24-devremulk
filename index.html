@@ -1459,7 +1459,20 @@ function afUniteRender(uniteler) {
   if (!el) return;
   var paraSel = document.getElementById('af-para');
   var para = paraSel ? (paraSel.value || 'TRY') : 'TRY';
-  var html = '<table class="daire-table" style="font-size:11px">'
+
+  // Mevcut değerlerden öneri listeleri
+  var bloklar = [], odaTipleri = [];
+  AF_UNITELER.forEach(function(u) {
+    if (u.blok && bloklar.indexOf(u.blok) < 0) bloklar.push(u.blok);
+    if (u.odaTipi && odaTipleri.indexOf(u.odaTipi) < 0) odaTipleri.push(u.odaTipi);
+  });
+  ['Studio','1+1','2+1','3+1','4+1','Villa','Bungalov'].forEach(function(o){
+    if (odaTipleri.indexOf(o) < 0) odaTipleri.push(o);
+  });
+
+  var html = '<datalist id="dl-blok">'+bloklar.map(function(b){return '<option value="'+e(b)+'"/>';}).join('')+'</datalist>'
+    + '<datalist id="dl-odatipi">'+odaTipleri.map(function(o){return '<option value="'+e(o)+'"/>';}).join('')+'</datalist>'
+    + '<table class="daire-table" style="font-size:11px">'
     + '<thead><tr>'
     + '<th>Blok</th><th style="width:45px">Kat</th>'
     + '<th style="width:75px">Oda No</th><th style="width:70px">Oda Tipi</th>'
@@ -1469,22 +1482,24 @@ function afUniteRender(uniteler) {
   AF_UNITELER.forEach(function(u, i) {
     var fiyatlar = u.fiyatlar || {};
     html += '<tr>'
-      + '<td><input type="text" value="'+e(u.blok)+'" onchange="AF_UNITELER['+i+'].blok=this.value"/></td>'
+      + '<td><input type="text" list="dl-blok" value="'+e(u.blok)+'" onchange="AF_UNITELER['+i+'].blok=this.value;afUniteRender(AF_UNITELER)"/></td>'
       + '<td><input type="number" value="'+u.kat+'" min="1" onchange="AF_UNITELER['+i+'].kat=parseInt(this.value)||1"/></td>'
       + '<td><input type="text" value="'+e(u.odaNo)+'" onchange="AF_UNITELER['+i+'].odaNo=this.value"/></td>'
-      + '<td><input type="text" value="'+e(u.odaTipi)+'" placeholder="2+1" onchange="AF_UNITELER['+i+'].odaTipi=this.value"/></td>'
+      + '<td><input type="text" list="dl-odatipi" value="'+e(u.odaTipi)+'" onchange="AF_UNITELER['+i+'].odaTipi=this.value;afUniteRender(AF_UNITELER)"/></td>'
       + '<td><input type="number" value="'+(fiyatlar.Yaz||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Yaz=parseFloat(this.value)||0"/></td>'
       + '<td><input type="number" value="'+(fiyatlar.Bahar||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Bahar=parseFloat(this.value)||0"/></td>'
       + '<td><input type="number" value="'+(fiyatlar.Kis||'')+'" placeholder="0" onchange="if(!AF_UNITELER['+i+'].fiyatlar)AF_UNITELER['+i+'].fiyatlar={};AF_UNITELER['+i+'].fiyatlar.Kis=parseFloat(this.value)||0"/></td>'
       + '<td><button onclick="afUniteSil('+i+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:15px;padding:0">×</button></td>'
       + '</tr>';
   });
-  // Yeni satır
-  html += '<tr style="background:#f8fafc">'
-    + '<td><input type="text" id="af-n-blok" placeholder="C Blok"/></td>'
+  // Yeni satır — son girilen blok ve oda tipini varsayılan yap (hızlı giriş)
+  var sonBlok = AF_UNITELER.length ? AF_UNITELER[AF_UNITELER.length-1].blok : '';
+  var sonTip  = AF_UNITELER.length ? AF_UNITELER[AF_UNITELER.length-1].odaTipi : '';
+  html += '<tr style="background:#f0fdf4">'
+    + '<td><input type="text" id="af-n-blok" list="dl-blok" placeholder="C Blok" value="'+e(sonBlok)+'"/></td>'
     + '<td><input type="number" id="af-n-kat" placeholder="1" min="1"/></td>'
     + '<td><input type="text" id="af-n-odano" placeholder="C-101"/></td>'
-    + '<td><input type="text" id="af-n-odatipi" placeholder="2+1"/></td>'
+    + '<td><input type="text" id="af-n-odatipi" list="dl-odatipi" placeholder="2+1" value="'+e(sonTip)+'"/></td>'
     + '<td><input type="number" id="af-n-yaz" placeholder="0"/></td>'
     + '<td><input type="number" id="af-n-bahar" placeholder="0"/></td>'
     + '<td><input type="number" id="af-n-kis" placeholder="0"/></td>'
@@ -1492,6 +1507,9 @@ function afUniteRender(uniteler) {
     + '</tr>';
   html += '</tbody></table>';
   el.innerHTML = html;
+  // Enter ile de ekleyebilsin
+  var odanoEl = el.querySelector('#af-n-odano');
+  if (odanoEl) odanoEl.addEventListener('keydown', function(ev){ if(ev.key==='Enter') afUniteEkle(); });
 }
 function e(s){ return String(s||'').replace(/"/g,'&quot;'); }
 function afUniteEkle() {
